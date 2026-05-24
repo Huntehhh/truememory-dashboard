@@ -1,0 +1,1136 @@
+/* ================================================================
+   TRUEMEMORY OBSERVATORY — editorial base extensions
+   Signal lanes, KPI strip, histograms, sparklines, heatmap,
+   log-stream, scatter, UMAP, drill panels, tone toggle.
+   ================================================================ */
+
+:root {
+  /* Signal-lane colors — semantic equivalent of patient/provider/ops/touch */
+  --sig-store:     #b85c2a;   /* on-store: terracotta (warm, grounding) */
+  --sig-store-bg:  #f5e3d4;
+  --sig-search:    #c89211;   /* on-search: aged gold */
+  --sig-search-bg: #f7ead0;
+  --sig-life:      #8e3d6f;   /* lifecycle: aubergine */
+  --sig-life-bg:   #efdce6;
+  --sig-ops:       #4a6e7e;   /* ops/performance: slate-teal */
+  --sig-ops-bg:    #dde8ec;
+
+  /* Severity for insights */
+  --sev-crit:      var(--red);
+  --sev-crit-bg:   var(--red-bg);
+  --sev-warn:      var(--amber);
+  --sev-warn-bg:   var(--amber-bg);
+  --sev-ok:        var(--green);
+  --sev-ok-bg:     var(--green-bg);
+  --sev-info:      var(--ink-muted);
+  --sev-info-bg:   var(--paper-warm);
+}
+
+/* ============================ CARD VARIANT — Q-BRAND ============================
+   Mirrors what `.card.brand` was intended to do, without colliding with
+   the global `.brand { grid-area: brand }` rule on the app shell. Use
+   `class="card q-brand"` instead of `class="card brand"`. */
+.card.q-brand .pre-tag {
+  background: var(--teal-bg);
+  color: var(--teal);
+}
+
+/* ============================ KPI STRIP ============================ */
+.kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0;
+  border: 1px solid var(--rule);
+  background: white;
+  margin: 1rem 0 1.75rem;
+}
+.kpi-cell {
+  padding: 1rem 1.1rem;
+  border-right: 1px solid var(--rule);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  background: white;
+  transition: background 0.15s;
+}
+.kpi-cell:last-child { border-right: 0; }
+.kpi-cell:hover { background: var(--paper-warm); }
+.kpi-cell .label {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+.kpi-cell .value {
+  font-family: var(--serif);
+  font-variation-settings: "opsz" 36, "wght" 500;
+  font-size: 1.8rem;
+  line-height: 1;
+  color: var(--ink);
+}
+.kpi-cell .delta {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--ink-muted);
+  letter-spacing: 0.05em;
+}
+.kpi-cell .delta.up   { color: var(--green); }
+.kpi-cell .delta.down { color: var(--red); }
+.kpi-cell .delta.flat { color: var(--ink-muted); }
+
+/* ============================ INSIGHT CARDS ============================ */
+.insights-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  margin: 1rem 0 2rem;
+}
+.insight {
+  background: white;
+  border: 1px solid var(--rule);
+  border-top: 3px solid var(--rule-strong);
+  padding: 1rem 1.1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  transition: all 0.18s ease;
+}
+.insight:hover { box-shadow: 0 6px 16px -8px rgba(0,0,0,0.12); border-color: var(--ink); }
+.insight.crit  { border-top-color: var(--sev-crit); }
+.insight.warn  { border-top-color: var(--sev-warn); }
+.insight.ok    { border-top-color: var(--sev-ok); }
+.insight.info  { border-top-color: var(--sev-info); }
+.insight .badge {
+  align-self: flex-start;
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  padding: 0.15rem 0.45rem;
+  background: var(--paper-warm);
+  color: var(--ink-muted);
+}
+.insight.crit .badge { background: var(--sev-crit-bg); color: var(--sev-crit); }
+.insight.warn .badge { background: var(--sev-warn-bg); color: var(--sev-warn); }
+.insight.ok   .badge { background: var(--sev-ok-bg);   color: var(--sev-ok); }
+.insight.info .badge { background: var(--sev-info-bg); color: var(--sev-info); }
+.insight .title {
+  font-family: var(--serif);
+  font-variation-settings: "opsz" 22, "wght" 600;
+  font-size: 1.05rem;
+  color: var(--ink);
+  line-height: 1.25;
+}
+.insight .body {
+  font-family: var(--serif);
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+.insight .body em { font-style: italic; color: var(--ink); }
+.insight .action {
+  margin-top: auto;
+  padding-top: 0.5rem;
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--teal);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-top: 1px dashed var(--rule);
+  cursor: pointer;
+}
+.insight .action:hover { color: var(--ink); }
+.insight .big-number {
+  font-family: var(--serif);
+  font-variation-settings: "opsz" 48, "wght" 400;
+  font-size: 3rem;
+  line-height: 1;
+  color: var(--teal);
+}
+.insight .big-number em { font-style: italic; color: var(--teal); }
+.insight .sparkline { margin-top: 0.4rem; }
+
+/* ============================ SPARKLINE / MINI CHARTS ============================ */
+.sparkline {
+  height: 36px;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+}
+.sparkline .bar {
+  flex: 1;
+  background: var(--teal);
+  opacity: 0.85;
+  min-height: 2px;
+}
+.sparkline .bar.dim { opacity: 0.35; }
+.sparkline.severity .bar { background: var(--sev-warn); }
+.sparkline-svg { width: 100%; height: 40px; }
+.sparkline-svg path { fill: none; stroke: var(--teal); stroke-width: 1.5; }
+.sparkline-svg .fill { fill: var(--teal-bg); opacity: 0.5; }
+
+/* ============================ HISTOGRAM ============================ */
+.hist {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 160px;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--rule-strong);
+}
+.hist .bin {
+  flex: 1;
+  background: var(--teal);
+  opacity: 0.85;
+  min-height: 4px;
+  position: relative;
+  transition: opacity 0.15s;
+}
+.hist .bin:hover { opacity: 1; }
+.hist .bin.peak  { background: var(--ink); }
+.hist .bin.danger { background: var(--sev-crit); }
+.hist .bin .lbl {
+  position: absolute;
+  top: -16px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  color: var(--ink-muted);
+  opacity: 0;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+.hist .bin:hover .lbl { opacity: 1; }
+.hist-axis {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  color: var(--ink-muted);
+  margin-top: 0.35rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* ============================ HEATMAP (GitHub-style activity) ============================ */
+.heatmap {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 3px;
+  padding: 0.75rem 0;
+}
+.heatmap .week {
+  display: grid;
+  grid-template-rows: repeat(7, 14px);
+  gap: 3px;
+}
+.heatmap .day {
+  background: var(--paper-warm);
+  border: 1px solid var(--rule);
+}
+.heatmap .day.l1 { background: #e8d4b8; border-color: #d8c098; }
+.heatmap .day.l2 { background: #c8a878; border-color: #ab8a5c; }
+.heatmap .day.l3 { background: #1d6e6e; border-color: #155757; }
+.heatmap .day.l4 { background: #0a3838; border-color: #0a3838; }
+.heatmap-labels {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 0.4rem;
+}
+
+/* ============================ LOG STREAM (telemetry preview) ============================ */
+.log-stream {
+  background: var(--ink);
+  color: var(--paper-warm);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  line-height: 1.55;
+  padding: 1rem 1.1rem;
+  margin: 0.75rem 0 1.25rem;
+  border-left: 3px solid var(--teal);
+  overflow-x: auto;
+  max-height: 360px;
+  overflow-y: auto;
+}
+.log-stream .line { white-space: nowrap; padding: 0.05rem 0; }
+.log-stream .ts   { color: #8a9b9b; margin-right: 0.5rem; }
+.log-stream .evt  { color: #d8e8e6; font-weight: 500; margin-right: 0.5rem; }
+.log-stream .kv   { color: #c8a878; }
+.log-stream .val  { color: var(--paper-warm); }
+.log-stream .line.store  .evt { color: #f5b88a; }
+.log-stream .line.search .evt { color: #e8c878; }
+.log-stream .line.life   .evt { color: #d8a8c8; }
+.log-stream .line.ops    .evt { color: #8ab8c8; }
+.log-stream .line.warn   { background: rgba(196, 57, 42, 0.15); }
+.log-stream .line.warn .evt { color: #f5a898; }
+
+/* ============================ SCATTER PLOT (SVG container) ============================ */
+.scatter {
+  background: white;
+  border: 1px solid var(--rule);
+  padding: 1rem;
+  margin: 0.75rem 0 1.25rem;
+}
+.scatter svg { width: 100%; height: 320px; display: block; }
+.scatter .axis-label {
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  fill: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.scatter .grid-line { stroke: var(--rule); stroke-dasharray: 2 3; stroke-width: 0.5; }
+.scatter .dot { fill: var(--teal); opacity: 0.6; transition: opacity 0.15s; }
+.scatter .dot:hover { opacity: 1; }
+.scatter .dot.outlier { fill: var(--sev-crit); opacity: 0.85; }
+.scatter .dot.relevant { fill: var(--green); opacity: 0.85; }
+.scatter .trend { stroke: var(--ink); stroke-width: 1.5; stroke-dasharray: 4 3; fill: none; }
+
+/* ============================ DATA TABLE (memory feed) ============================ */
+.datatable {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--sans);
+  font-size: 0.88rem;
+  margin: 0.75rem 0 1.25rem;
+}
+.datatable th {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-muted);
+  padding: 0.6rem 0.9rem;
+  background: var(--paper-warm);
+  border-bottom: 1px solid var(--rule-strong);
+  text-align: left;
+  font-weight: 500;
+}
+.datatable td {
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+  font-family: var(--serif);
+  font-size: 0.94rem;
+  color: var(--ink-soft);
+  background: white;
+}
+.datatable tr:hover td { background: var(--paper-warm); }
+.datatable .cell-mono { font-family: var(--mono); font-size: 0.78rem; color: var(--ink-muted); }
+.datatable .cell-cat {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.1rem 0.4rem;
+  background: var(--paper-warm);
+  color: var(--ink-muted);
+  display: inline-block;
+}
+.datatable .cell-cat.engineering { background: var(--sig-ops-bg); color: var(--sig-ops); }
+.datatable .cell-cat.project     { background: var(--patient-bg); color: var(--patient); }
+.datatable .cell-cat.feedback    { background: var(--sig-life-bg); color: var(--sig-life); }
+.datatable .cell-cat.reference   { background: var(--sig-search-bg); color: var(--sig-search); }
+.datatable .cell-cat.preference  { background: var(--teal-bg); color: var(--teal); }
+.datatable .cell-sal {
+  display: inline-block;
+  width: 36px;
+  height: 6px;
+  background: var(--paper-warm);
+  position: relative;
+  margin-right: 0.4rem;
+  vertical-align: middle;
+}
+.datatable .cell-sal::after {
+  content: '';
+  position: absolute; left: 0; top: 0; bottom: 0;
+  background: var(--teal);
+  width: var(--sal, 50%);
+}
+
+/* ============================ FILTER BAR ============================ */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.75rem 0 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--paper-warm);
+  border: 1px solid var(--rule);
+  align-items: center;
+}
+.filter-bar .label {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-right: 0.5rem;
+}
+.chip {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  padding: 0.25rem 0.6rem;
+  background: white;
+  border: 1px solid var(--rule);
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.chip:hover { border-color: var(--ink); }
+.chip.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.chip.signal-store  { border-color: var(--sig-store); color: var(--sig-store); }
+.chip.signal-search { border-color: var(--sig-search); color: var(--sig-search); }
+.chip.signal-life   { border-color: var(--sig-life); color: var(--sig-life); }
+.chip.signal-ops    { border-color: var(--sig-ops); color: var(--sig-ops); }
+.chip.signal-store.active  { background: var(--sig-store); color: white; }
+.chip.signal-search.active { background: var(--sig-search); color: white; }
+.chip.signal-life.active   { background: var(--sig-life); color: white; }
+.chip.signal-ops.active    { background: var(--sig-ops); color: white; }
+
+/* ============================ TONE TOGGLE ============================ */
+.tone-toggle {
+  display: inline-flex;
+  border: 1px solid var(--rule);
+  background: white;
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.tone-toggle .opt {
+  padding: 0.3rem 0.65rem;
+  color: var(--ink-muted);
+  cursor: pointer;
+  border-right: 1px solid var(--rule);
+}
+.tone-toggle .opt:last-child { border-right: 0; }
+.tone-toggle .opt.active {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+/* ============================ UMAP CANVAS ============================ */
+.umap {
+  background: white;
+  border: 1px solid var(--rule);
+  position: relative;
+  padding: 1rem;
+  margin: 0.75rem 0 1.25rem;
+}
+.umap svg { width: 100%; height: 480px; display: block; }
+.umap .cluster-edge { stroke: var(--rule-strong); stroke-width: 0.5; opacity: 0.4; }
+.umap .cluster-dot {
+  cursor: pointer;
+  transition: r 0.15s;
+}
+.umap .cluster-dot:hover { r: 8; }
+.umap .cluster-c1 { fill: var(--patient); }
+.umap .cluster-c2 { fill: var(--teal); }
+.umap .cluster-c3 { fill: var(--sig-store); }
+.umap .cluster-c4 { fill: var(--sig-life); }
+.umap .cluster-c5 { fill: var(--sig-search); }
+.umap .cluster-noise { fill: var(--ink-dim); opacity: 0.4; }
+.umap .cluster-label {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  fill: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.cluster-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.75rem 0 0;
+}
+.cluster-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.6rem;
+  background: var(--paper-warm);
+  border: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.cluster-pill::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--rule-strong);
+}
+.cluster-pill.c1::before { background: var(--patient); }
+.cluster-pill.c2::before { background: var(--teal); }
+.cluster-pill.c3::before { background: var(--sig-store); }
+.cluster-pill.c4::before { background: var(--sig-life); }
+.cluster-pill.c5::before { background: var(--sig-search); }
+
+/* ============================ DRILL PANEL (slide-in detail) ============================ */
+.drill {
+  background: white;
+  border: 1px solid var(--rule-strong);
+  border-left: 3px solid var(--teal);
+  padding: 1.1rem 1.25rem;
+  margin: 0.75rem 0 1.25rem;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+.drill .header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 0.5rem;
+  gap: 0.75rem;
+}
+.drill .header .title {
+  font-family: var(--serif);
+  font-variation-settings: "opsz" 22, "wght" 600;
+  font-size: 1.15rem;
+  color: var(--ink);
+}
+.drill .header .meta {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.drill dl {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 0.5rem 1rem;
+  font-family: var(--serif);
+  font-size: 0.92rem;
+}
+.drill dt {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  align-self: start;
+}
+.drill dd { color: var(--ink-soft); }
+
+/* ============================ EMPTY STATE ============================ */
+.empty {
+  text-align: center;
+  padding: 2rem 1rem;
+  background: var(--paper-warm);
+  border: 1px dashed var(--rule-strong);
+  margin: 0.75rem 0 1.25rem;
+  color: var(--ink-muted);
+}
+.empty .icon {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 2rem;
+  color: var(--rule-strong);
+  margin-bottom: 0.5rem;
+}
+.empty .title {
+  font-family: var(--serif);
+  font-variation-settings: "opsz" 22, "wght" 600;
+  font-size: 1.05rem;
+  color: var(--ink);
+  margin-bottom: 0.3rem;
+}
+.empty .reason {
+  font-family: var(--serif);
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+/* ============================ BIG NUMBER (health score) ============================ */
+.health-score {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0.3rem 0 0.5rem;
+}
+.health-score .num {
+  font-family: var(--serif);
+  font-variation-settings: "opsz" 60, "wght" 400;
+  font-size: 3.4rem;
+  line-height: 1;
+  color: var(--teal);
+}
+.health-score .num em { font-style: italic; color: var(--teal); }
+.health-score .out-of {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+.health-score .grade {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  padding: 0.2rem 0.5rem;
+  background: var(--green-bg);
+  color: var(--green);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-left: auto;
+}
+
+/* ============================ SIGNAL-LANE BADGES ============================ */
+.lane-badge {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  padding: 0.15rem 0.45rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  background: var(--paper-warm);
+  color: var(--ink-muted);
+}
+.lane-badge.store  { background: var(--sig-store-bg); color: var(--sig-store); }
+.lane-badge.search { background: var(--sig-search-bg); color: var(--sig-search); }
+.lane-badge.life   { background: var(--sig-life-bg); color: var(--sig-life); }
+.lane-badge.ops    { background: var(--sig-ops-bg); color: var(--sig-ops); }
+
+/* ============================ SIGNAL CARD (signal-definitions page) ============================ */
+.signal-card {
+  background: white;
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--rule-strong);
+  padding: 1.1rem 1.25rem;
+  margin-bottom: 0.85rem;
+  transition: all 0.15s;
+}
+.signal-card:hover { box-shadow: 0 4px 12px -6px rgba(0,0,0,0.1); }
+.signal-card.store  { border-left-color: var(--sig-store); }
+.signal-card.search { border-left-color: var(--sig-search); }
+.signal-card.life   { border-left-color: var(--sig-life); }
+.signal-card.ops    { border-left-color: var(--sig-ops); }
+.signal-card .signal-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-bottom: 0.4rem;
+}
+.signal-card .signal-name {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  color: var(--ink);
+  font-weight: 500;
+  background: var(--paper-warm);
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--rule);
+}
+.signal-card .signal-since {
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-left: auto;
+}
+.signal-card .signal-when {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+  margin-bottom: 0.5rem;
+}
+.signal-card .signal-payload {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  background: var(--ink);
+  color: #c8a878;
+  padding: 0.5rem 0.7rem;
+  border-left: 2px solid var(--sig-store);
+  margin: 0.3rem 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.signal-card.search .signal-payload { border-left-color: var(--sig-search); color: #e8c878; }
+.signal-card.life .signal-payload   { border-left-color: var(--sig-life); color: #d8a8c8; }
+.signal-card.ops .signal-payload    { border-left-color: var(--sig-ops); color: #8ab8c8; }
+
+/* ============================ LIFECYCLE DIAGRAM (memory-lifecycle page) ============================ */
+.lifecycle {
+  background: var(--paper-warm);
+  border: 1px solid var(--rule);
+  padding: 2rem;
+  margin: 1rem 0 1.75rem;
+  overflow-x: auto;
+}
+.lifecycle svg { width: 100%; min-width: 1200px; height: auto; display: block; }
+.lifecycle .node rect {
+  fill: white;
+  stroke: var(--rule-strong);
+  stroke-width: 1.5;
+}
+.lifecycle .node.fires rect { stroke: var(--teal); stroke-width: 2.5; }
+.lifecycle .node.dead rect  { stroke: var(--rule); stroke-dasharray: 4 3; }
+.lifecycle .node text {
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 500;
+  fill: var(--ink);
+  text-anchor: middle;
+}
+.lifecycle .node .sub {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  fill: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.lifecycle .edge {
+  stroke: var(--rule-strong);
+  stroke-width: 1.5;
+  fill: none;
+  marker-end: url(#arrowhead);
+}
+.lifecycle .edge.flow   { stroke: var(--teal); stroke-width: 2; }
+.lifecycle .edge.skip   { stroke: var(--ink-dim); stroke-dasharray: 4 3; }
+.lifecycle .edge.life   { stroke: var(--sig-life); stroke-dasharray: 6 3; }
+
+/* ============================ PROVENANCE / META FOOTER ============================ */
+.provenance {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--rule);
+  margin-top: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.provenance .item { display: flex; gap: 0.4rem; align-items: center; }
+.provenance .item::before { content: '·'; color: var(--ink-dim); }
+.provenance .item:first-child::before { content: ''; }
+
+/* ============================ PORT A1 — FORMULA TOGGLE + COEFFICIENT TUNER ============================ */
+.formula-panel {
+  background: var(--paper-warm);
+  border: 1px solid var(--rule);
+  padding: 1rem 1.1rem;
+  margin: 0.75rem 0 1.25rem;
+}
+.formula-panel .formula-options {
+  display: flex;
+  gap: 0;
+  margin-bottom: 0.75rem;
+}
+.formula-panel .formula-opt {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.35rem 0.85rem;
+  border: 1px solid var(--rule-strong);
+  border-right: 0;
+  color: var(--ink-muted);
+  cursor: pointer;
+  background: white;
+  transition: all 0.15s;
+}
+.formula-panel .formula-opt:last-child { border-right: 1px solid var(--rule-strong); }
+.formula-panel .formula-opt.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.formula-panel .coeff-expander {
+  border-top: 1px dashed var(--rule-strong);
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+}
+.formula-panel .coeff-expander summary {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--teal);
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.formula-panel .coeff-expander summary::before { content: '▸'; font-size: 0.55rem; }
+.formula-panel .coeff-expander[open] summary::before { content: '▾'; }
+.coeff-grid {
+  display: grid;
+  grid-template-columns: 80px 1fr 36px;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+  margin-top: 0.65rem;
+}
+.coeff-grid .coeff-label {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.coeff-grid input[type="range"] {
+  width: 100%;
+  accent-color: var(--teal);
+  height: 4px;
+}
+.coeff-grid .coeff-val {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--ink);
+  text-align: right;
+}
+.formula-display {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+  background: white;
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--teal);
+  padding: 0.5rem 0.75rem;
+  margin-top: 0.75rem;
+  line-height: 1.6;
+}
+.formula-display strong { color: var(--ink); }
+
+/* ============================ PORT A2 — Q/A NATURAL LANGUAGE BAR ============================ */
+.qa-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0.75rem 0 0.25rem;
+  padding: 0.75rem 1rem;
+  background: white;
+  border: 1px solid var(--rule);
+  border-top: 2px solid var(--teal);
+}
+.qa-bar .qa-input-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.qa-bar input[type="text"] {
+  flex: 1;
+  font-family: var(--serif);
+  font-size: 0.92rem;
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  padding: 0.45rem 0.7rem;
+  background: var(--paper-warm);
+  outline: none;
+  transition: border-color 0.15s;
+}
+.qa-bar input[type="text"]:focus { border-color: var(--teal); }
+.qa-bar input[type="text"]::placeholder { color: var(--ink-dim); font-style: italic; }
+.qa-bar .qa-submit {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.45rem 0.85rem;
+  background: var(--ink);
+  color: var(--paper);
+  border: 1px solid var(--ink);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.qa-bar .qa-submit:hover { background: var(--teal); border-color: var(--teal); }
+.qa-bar .qa-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.qa-chip {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  padding: 0.2rem 0.55rem;
+  background: var(--paper-warm);
+  border: 1px solid var(--rule);
+  color: var(--ink-soft);
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  transition: all 0.15s;
+  font-style: italic;
+}
+.qa-chip:hover { border-color: var(--teal); color: var(--teal); }
+
+/* ============================ PORT A3 — TONE TOGGLE (view-header compact) ============================ */
+/* .tone-toggle already exists; add view-header variant */
+.view-head-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.4rem;
+  flex-wrap: wrap;
+}
+.tone-label {
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-muted);
+}
+
+/* ============================ PORT A5 — HEALTH SCORE FORMULA EXPANDER ============================ */
+.formula-doc {
+  margin-top: 0.5rem;
+  border-top: 1px dashed var(--rule);
+  padding-top: 0.5rem;
+}
+.formula-doc summary {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-muted);
+  cursor: pointer;
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.formula-doc summary:hover { color: var(--teal); }
+.formula-doc summary::before { content: '▸'; font-size: 0.5rem; }
+.formula-doc[open] summary::before { content: '▾'; }
+.formula-doc .formula-body {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--ink-soft);
+  margin-top: 0.5rem;
+  line-height: 1.7;
+  background: white;
+  border: 1px solid var(--rule);
+  padding: 0.5rem 0.65rem;
+}
+.formula-doc .formula-body strong { color: var(--ink); }
+.formula-doc .bands {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+}
+.formula-doc .band {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  padding: 0.15rem 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.formula-doc .band.ok    { background: var(--sev-ok-bg);   color: var(--sev-ok); }
+.formula-doc .band.warn  { background: var(--sev-warn-bg); color: var(--sev-warn); }
+.formula-doc .band.crit  { background: var(--sev-crit-bg); color: var(--sev-crit); }
+
+/* ============================ PORT A4 — RETRIEVAL PROVENANCE IN FEED DRILLDOWN ============================ */
+.retrieval-stack {
+  margin-top: 0.5rem;
+}
+.retrieval-stack .rs-title {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-muted);
+  margin-bottom: 0.35rem;
+}
+.retrieval-stack .rs-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px dotted var(--rule);
+  font-family: var(--mono);
+  font-size: 0.65rem;
+}
+.retrieval-stack .rs-row:last-child { border-bottom: 0; }
+.retrieval-stack .rs-tier {
+  width: 80px;
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+}
+.retrieval-stack .rs-val { color: var(--ink-soft); }
+.retrieval-stack .rs-boost { color: var(--sig-store); font-weight: 500; }
+.retrieval-stack .rs-final { color: var(--teal); font-weight: 500; }
+
+/* ============================ PORT B15 — METRIC POPOVERS ============================ */
+.metric-help {
+  position: relative;
+  display: inline-block;
+}
+.metric-help .help-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--paper-warm);
+  border: 1px solid var(--rule-strong);
+  font-family: var(--mono);
+  font-size: 0.5rem;
+  color: var(--ink-muted);
+  cursor: help;
+  vertical-align: middle;
+  margin-left: 0.25rem;
+  line-height: 1;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.metric-help:hover .help-icon { background: var(--teal); color: white; border-color: var(--teal); }
+.metric-help .popover {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 240px;
+  background: var(--ink);
+  color: var(--paper-warm);
+  font-family: var(--serif);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  padding: 0.65rem 0.8rem;
+  border-left: 3px solid var(--teal);
+  z-index: 100;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+.metric-help .popover .pop-label {
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #8ab8c8;
+  margin-bottom: 0.3rem;
+  display: block;
+}
+.metric-help .popover .pop-good {
+  display: block;
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: #8ab8c8;
+  margin-top: 0.35rem;
+}
+.metric-help:hover .popover { opacity: 1; }
+
+/* Popover on right side when near left edge */
+.metric-help.pop-right .popover { left: 0; transform: none; }
+.metric-help.pop-left  .popover { left: auto; right: 0; transform: none; }
+
+/* ============================ PORT B16 — K-NN TOGGLE + ORPHAN NODE ============================ */
+.umap-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+.umap-controls .uc-label {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.knn-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  color: var(--ink-muted);
+  user-select: none;
+}
+.knn-toggle input[type="checkbox"] { accent-color: var(--teal); }
+.knn-toggle:hover { color: var(--teal); }
+/* K-NN edge lines — shown only when .knn-active is on .umap svg */
+.knn-edge { stroke: var(--rule-strong); stroke-width: 0.5; opacity: 0; transition: opacity 0.2s; }
+.umap.knn-active .knn-edge { opacity: 0.4; }
+/* Orphan node */
+.cluster-orphan { fill: #aaa; stroke: #888; stroke-width: 1.5; stroke-dasharray: 3 2; }
+
+/* ============================ PORT B19-B21 — AGING INSIGHT CARDS (no new class needed, use existing .insight) ============================ */
+/* Sparkline-SVG horizon line */
+.horizon-line { stroke: var(--sev-warn); stroke-width: 1.5; stroke-dasharray: 4 3; }
+
+/* ============================ PORT B19 — CATEGORY SALIENCE MEDIAN + SORT HEADER ============================ */
+.cat-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0 2rem;
+}
+.cat-table th {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-muted);
+  padding: 0.5rem 0.75rem;
+  background: var(--paper-warm);
+  border-bottom: 1px solid var(--rule-strong);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+.cat-table th .sort-icon { margin-left: 0.3rem; opacity: 0.4; }
+.cat-table th.sorted .sort-icon { opacity: 1; color: var(--teal); }
+.cat-table td {
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  vertical-align: middle;
+}
+.cat-table .cat-bar-cell { min-width: 180px; }
+.cat-bar-wrap {
+  height: 14px;
+  background: var(--paper-warm);
+  border: 1px solid var(--rule);
+  position: relative;
+}
+.cat-bar-fill {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  transition: width 0.2s;
+}
+.cat-sal-median {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--teal);
+  padding: 0.1rem 0.35rem;
+  background: var(--teal-bg, #e8f2f2);
+  display: inline-block;
+}
+
+/* ============================ BACK-TO-INDEX BREADCRUMB ============================ */
+.view-meta .back-to-index {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--ink-muted);
+  text-decoration: none;
+  letter-spacing: 0.02em;
+  transition: color 0.15s;
+}
+.view-meta .back-to-index:hover { color: var(--teal); }

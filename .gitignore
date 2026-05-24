@@ -1,0 +1,28 @@
+# Secrets — never commit
+.env
+
+# Build output
+dist/
+node_modules/
+
+# Logs
+*.log
+logs/
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Local data (none should exist in-repo, but guard against accidental drops)
+data/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/

@@ -1,0 +1,37 @@
+# TrueMemory Dashboard — standalone Postgres.
+#
+# This is the ONLY infrastructure container the dashboard needs. On first
+# `docker compose up`, the files in ./sql/init run in alphabetical order and
+# create every table, index, materialized view, and the read-only role — an
+# EMPTY database with the full schema. No data is shipped; your TrueMemory
+# mirror populates it locally.
+#
+# Copy .env.example -> .env and set the two passwords before starting.
+services:
+  truememory-dashboard-pg:
+    image: postgres:${CLAUDE_USAGE_PG_VERSION:-17.2-alpine}
+    container_name: truememory-dashboard-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${CLAUDE_USAGE_PG_DATABASE:-claude_usage}
+      POSTGRES_USER: ${CLAUDE_USAGE_PG_USER:-claude_usage}
+      POSTGRES_PASSWORD: ${CLAUDE_USAGE_PG_PASSWORD:?set CLAUDE_USAGE_PG_PASSWORD in .env}
+      PGDATA: /var/lib/postgresql/data/pgdata
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    volumes:
+      # Schema-only init — runs once on an empty data dir, creates all tables.
+      - ./sql/init:/docker-entrypoint-initdb.d:ro
+      # Named volume = the consumer's own data, never shipped in this repo.
+      - truememory-dashboard-pgdata:/var/lib/postgresql/data
+    ports:
+      # Host-only by default. Change the bind address at your own risk.
+      - "127.0.0.1:${CLAUDE_USAGE_PG_PORT:-5433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${CLAUDE_USAGE_PG_USER:-claude_usage} -d ${CLAUDE_USAGE_PG_DATABASE:-claude_usage}"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+
+volumes:
+  truememory-dashboard-pgdata:

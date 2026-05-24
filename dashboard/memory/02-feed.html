@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TrueMemory · Memory Feed</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&family=Source+Sans+3:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_assets/styles.css">
+<link rel="stylesheet" href="_assets/styles-observatory.css">
+<link rel="stylesheet" href="_assets/styles-usage.css">
+<link rel="stylesheet" href="_assets/styles-memory.css">
+<script src="https://cdn.plot.ly/plotly-2.35.0.min.js" charset="utf-8"></script>
+</head>
+<body>
+<div class="app">
+  <header class="brand"><span class="logo">True<em>Memory</em></span><span class="ver">MEMORY</span></header>
+  <nav class="topbar">
+    <div class="crumb"><a href="00-index.html">Memory</a> <span class="sep">/</span> Feed</div>
+    <div class="pill-toggle">
+      <a class="active" href="00-index.html">MEMORY</a>
+    </div>
+    <button class="refresh-btn" id="refresh-btn" type="button">[ REFRESH ]</button>
+  </nav>
+  <aside class="sidebar">
+    <div class="sidebar-section">Story</div>
+    <a class="nav-item" href="00-index.html"><span>Index</span><span class="num">00</span></a>
+    <a class="nav-item" href="01-overview.html"><span>Overview</span><span class="num">01</span></a>
+    <a class="nav-item active" href="02-feed.html"><span>Memory Feed</span><span class="num">02</span></a>
+    <div class="sidebar-section">Build</div>
+    <a class="nav-item" href="03-by-category.html"><span>By Category</span><span class="num">03</span></a>
+    <a class="nav-item" href="04-aging.html"><span>Aging</span><span class="num">04</span></a>
+    <a class="nav-item" href="05-themes.html"><span>Themes (UMAP)</span><span class="num">05</span></a>
+    <div class="sidebar-section">Operate</div>
+    <a class="nav-item" href="06-operations.html"><span>Operations</span><span class="num">06</span></a>
+    <a class="nav-item" href="07-encoding-gate.html"><span>Encoding Gate</span><span class="num">07</span></a>
+    <a class="nav-item" href="08-open-loops.html"><span>Open Loops</span><span class="num">08</span></a>
+    <div class="sidebar-section">Reference</div>
+    <a class="nav-item" href="09-lifecycle.html"><span>Lifecycle</span><span class="num">09</span></a>
+  </aside>
+
+  <main class="main">
+    <div class="view-head">
+      <div>
+        <h1 class="view-title">02 · Memory <em>Feed</em></h1>
+        <p class="view-dek">All memories, newest first. Each row is one passed-the-gate entry. Click any id to copy.</p>
+      </div>
+      <div class="view-meta">live · 200 most recent</div>
+    </div>
+
+    <section class="chart-card">
+      <div class="chart-card-head">
+        <h2 class="chart-card-title">memories.db <em>stream</em></h2>
+        <span class="chart-card-meta">scrollable · click id to copy</span>
+      </div>
+      <!-- Category chip bar: renders chips from /api/memory/feed-categories -->
+      <div id="chip-bar-mount"><div class="category-chip-bar" id="chip-bar-inner"></div></div>
+      <div class="feed-scroll" id="feed-mount"></div>
+    </section>
+  </main>
+</div>
+
+<script src="_assets/render-memory.js"></script>
+<script>
+(async function init() {
+  // Determine initial category from URL (for page-load pre-selection)
+  const urlParams = new URLSearchParams(window.location.search);
+  let activeCategory = urlParams.get('category') || null;
+
+  const feedMount = document.getElementById('feed-mount');
+  const chipMount = document.getElementById('chip-bar-mount');
+
+  const loadFeed = (cat) => GTBM.renderMemoryFeed(feedMount, 200, cat);
+
+  // Render chip bar; chip clicks call loadFeed with the selected category
+  GTBM.renderCategoryChips(chipMount, (cat) => {
+    activeCategory = cat;
+    loadFeed(cat);
+  });
+
+  // Refresh button reloads both chips and feed
+  const refresh = () => {
+    GTBM.renderCategoryChips(chipMount, (cat) => {
+      activeCategory = cat;
+      loadFeed(cat);
+    });
+    return loadFeed(activeCategory);
+  };
+
+  GTBM.attachRefresh(document.getElementById('refresh-btn'), refresh);
+  await loadFeed(activeCategory);
+})();
+</script>
+</body>
+</html>
