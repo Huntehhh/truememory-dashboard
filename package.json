@@ -1,0 +1,30 @@
+{
+  "name": "truememory-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A read-only observability dashboard for TrueMemory — mirrors the local TrueMemory SQLite store into Postgres and renders memory health, aging, themes, gate decisions, and operations.",
+  "main": "dist/server/index.js",
+  "scripts": {
+    "build": "tsc",
+    "mirror": "node dist/mirror/truememory.js",
+    "mirror:once": "node dist/mirror/truememory.js --once",
+    "refresh-matviews": "node dist/refresh/matviews.js",
+    "refresh-matviews:once": "node dist/refresh/matviews.js --once",
+    "server": "node dist/server/index.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.10.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.7.4",
+    "@types/pg": "^8.11.10",
+    "typescript": "^5.6.2"
+  }
+}

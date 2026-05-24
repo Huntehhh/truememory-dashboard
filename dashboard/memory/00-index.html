@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TrueMemory · Memory Index</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&family=Source+Sans+3:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_assets/styles.css">
+<link rel="stylesheet" href="_assets/styles-observatory.css">
+<link rel="stylesheet" href="_assets/styles-usage.css">
+<link rel="stylesheet" href="_assets/styles-memory.css">
+<script src="https://cdn.plot.ly/plotly-2.35.0.min.js" charset="utf-8"></script>
+</head>
+<body>
+<div class="app">
+
+  <header class="brand">
+    <span class="logo">True<em>Memory</em></span>
+    <span class="ver">MEMORY</span>
+  </header>
+
+  <nav class="topbar">
+    <div class="crumb"><span>TrueMemory</span> <span class="sep">/</span> Memory</div>
+    <div class="pill-toggle" role="tablist">
+      <a class="active" href="00-index.html" role="tab">MEMORY</a>
+    </div>
+    <button class="refresh-btn" id="refresh-btn" type="button">[ REFRESH ]</button>
+  </nav>
+
+  <aside class="sidebar">
+    <div class="sidebar-section">Story</div>
+    <a class="nav-item active" href="00-index.html"><span>Index</span><span class="num">00</span></a>
+    <a class="nav-item" href="01-overview.html"><span>Overview</span><span class="num">01</span></a>
+    <a class="nav-item" href="02-feed.html"><span>Memory Feed</span><span class="num">02</span></a>
+    <div class="sidebar-section">Build</div>
+    <a class="nav-item" href="03-by-category.html"><span>By Category</span><span class="num">03</span></a>
+    <a class="nav-item" href="04-aging.html"><span>Aging</span><span class="num">04</span></a>
+    <a class="nav-item" href="05-themes.html"><span>Themes (UMAP)</span><span class="num">05</span></a>
+    <div class="sidebar-section">Operate</div>
+    <a class="nav-item" href="06-operations.html"><span>Operations</span><span class="num">06</span></a>
+    <a class="nav-item" href="07-encoding-gate.html"><span>Encoding Gate</span><span class="num">07</span></a>
+    <a class="nav-item" href="08-open-loops.html"><span>Open Loops</span><span class="num">08</span></a>
+    <div class="sidebar-section">Reference</div>
+    <a class="nav-item" href="09-lifecycle.html"><span>Lifecycle</span><span class="num">09</span></a>
+    <div class="sidebar-footer">
+      API: <a href="/api/memory/kpi">/api/memory</a>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <div class="view-head">
+      <div>
+        <h1 class="view-title">00 · <em>Memory</em></h1>
+        <p class="view-dek">Every memory the engine has stored, every gate decision it made, every retrieval. The shape of a system that finally answers to itself.</p>
+      </div>
+      <div class="view-meta">truememory · live SQL · <span id="row-count">—</span> memories</div>
+    </div>
+
+    <!-- live KPI strip -->
+    <section class="kpi-strip" id="kpi-strip" aria-label="Memory snapshot"></section>
+
+    <!-- octopus flow-map -->
+    <section class="flow-map">
+
+      <a class="flow-branch lane-terra" href="01-overview.html">
+        <div class="flow-branch-head">
+          <span class="flow-branch-title">Memory <em>Health</em></span>
+          <span class="flow-branch-num">01 · 02 · 03</span>
+        </div>
+        <p class="flow-branch-blurb">Top-line corpus shape. How many, how fresh, how dense. The pulse before the diagnosis.</p>
+        <div class="flow-branch-links">
+          <a class="flow-branch-link" href="01-overview.html"><span>Overview</span><span class="arrow">→</span></a>
+          <a class="flow-branch-link" href="02-feed.html"><span>Memory Feed</span><span class="arrow">→</span></a>
+          <a class="flow-branch-link" href="03-by-category.html"><span>By Category</span><span class="arrow">→</span></a>
+        </div>
+      </a>
+
+      <a class="flow-branch lane-gold" href="04-aging.html">
+        <div class="flow-branch-head">
+          <span class="flow-branch-title">Aging <em>Surfaces</em></span>
+          <span class="flow-branch-num">04 · 05</span>
+        </div>
+        <p class="flow-branch-blurb">What to act on now. The decay leader, the long-stored stranger, the surprise that faded, the cluster nobody visited.</p>
+        <div class="flow-branch-links">
+          <a class="flow-branch-link" href="04-aging.html"><span>Memory Aging</span><span class="arrow">→</span></a>
+          <a class="flow-branch-link" href="05-themes.html"><span>Themes (UMAP)</span><span class="arrow">→</span></a>
+        </div>
+      </a>
+
+      <a class="flow-branch lane-slate" href="06-operations.html">
+        <div class="flow-branch-head">
+          <span class="flow-branch-title">Pipeline <em>Ops</em></span>
+          <span class="flow-branch-num">06 · 07 · 08</span>
+        </div>
+        <p class="flow-branch-blurb">Did the engine keep up? Where is the gate misfiring? Which dead signals are still waiting on a runtime decision?</p>
+        <div class="flow-branch-links">
+          <a class="flow-branch-link" href="06-operations.html"><span>Operations</span><span class="arrow">→</span></a>
+          <a class="flow-branch-link" href="07-encoding-gate.html"><span>Encoding Gate</span><span class="arrow">→</span></a>
+          <a class="flow-branch-link" href="08-open-loops.html"><span>Open Loops</span><span class="arrow">→</span></a>
+        </div>
+      </a>
+
+    </section>
+
+    <!-- compact 12-week activity heatmap -->
+    <section class="chart-card">
+      <div class="chart-card-head">
+        <h2 class="chart-card-title">12-week <em>retrieval</em> heatmap</h2>
+        <span class="chart-card-meta">memory_returned events per day</span>
+      </div>
+      <div class="chart-mount" id="activity-heatmap-mount"></div>
+    </section>
+
+  </main>
+
+</div>
+
+<script src="_assets/render-memory.js"></script>
+<script>
+(async function init() {
+  const refresh = async () => {
+    await Promise.all([
+      GTBM.renderMemoryKpiStrip(document.getElementById('kpi-strip')),
+      GTBM.renderMemoryActivityHeatmap(document.getElementById('activity-heatmap-mount')),
+    ]);
+    const kpi = await GTBM.fetchJson('/api/memory/kpi');
+    if (kpi && kpi.total_memories != null) {
+      document.getElementById('row-count').textContent = GTBM.fmtNum(kpi.total_memories);
+    }
+  };
+  GTBM.attachRefresh(document.getElementById('refresh-btn'), refresh);
+  await refresh();
+})();
+</script>
+</body>
+</html>

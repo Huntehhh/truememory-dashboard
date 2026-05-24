@@ -1,0 +1,601 @@
+/* styles-memory.css — supplements Observatory v2 base for the Memory dashboard.
+ * Mirrors styles-usage.css patterns; adds aging-callout-specific elements
+ * (lane-coloured chips, action buttons with hover lift, placeholder cards).
+ * Keep thin — reusable bits should migrate into styles-observatory.css.
+ */
+
+/* aging callout cards (03d mirror) ------------------------------- */
+.aging-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 18px;
+  margin: 20px 0 32px;
+}
+
+.aging-card {
+  background: var(--paper, #faf6f0);
+  border: 1px solid var(--ink-line, #cdb693);
+  border-top: 3px solid var(--ink-dim, #888);
+  padding: 18px 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.aging-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px -10px rgba(0,0,0,0.18);
+  border-color: var(--ink, #2a2a2a);
+}
+
+.aging-card.lane-terra { border-top-color: var(--terra, #b85c2a); }
+.aging-card.lane-gold  { border-top-color: var(--gold, #c89211); }
+.aging-card.lane-auber { border-top-color: var(--auber, #8e3d6f); }
+.aging-card.lane-slate { border-top-color: var(--slate, #4a6e7e); }
+.aging-card.lane-teal  { border-top-color: var(--teal, #1d6e6e); }
+.aging-card.lane-red   { border-top-color: #a13e2a; }
+
+.aging-card.placeholder {
+  opacity: 0.62;
+  border-style: dashed;
+}
+
+/* lane chip — colored tag at the top of each aging callout */
+.lane-chip {
+  display: inline-block;
+  align-self: flex-start;
+  font-family: "DM Mono", monospace;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 2px;
+  background: rgba(0,0,0,0.06);
+  color: var(--ink-mid, #5a5a5a);
+}
+
+.lane-chip.lane-terra { background: rgba(184, 92, 42, 0.16); color: var(--terra, #b85c2a); }
+.lane-chip.lane-gold  { background: rgba(200, 146, 17, 0.20); color: #8a6109; }
+.lane-chip.lane-auber { background: rgba(142, 61, 111, 0.16); color: var(--auber, #8e3d6f); }
+.lane-chip.lane-slate { background: rgba(74, 110, 126, 0.18); color: var(--slate, #4a6e7e); }
+.lane-chip.lane-teal  { background: rgba(29, 110, 110, 0.18); color: var(--teal, #1d6e6e); }
+.lane-chip.lane-red   { background: rgba(161, 62, 42, 0.18); color: #a13e2a; }
+
+.aging-card .headline {
+  font-family: "Newsreader", serif;
+  font-size: 19px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--ink, #2a2a2a);
+}
+
+.aging-card .headline em {
+  color: var(--teal, #1d6e6e);
+  font-style: italic;
+  font-weight: 400;
+}
+
+.aging-card .body {
+  font-family: "Source Sans 3", system-ui, sans-serif;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ink-mid, #5a5a5a);
+}
+
+.aging-card .body code {
+  font-family: "DM Mono", monospace;
+  font-size: 11px;
+  background: var(--paper-mid, #f3ecdf);
+  padding: 1px 5px;
+  border-radius: 2px;
+  color: var(--ink, #2a2a2a);
+}
+
+.aging-card .placeholder-msg {
+  font-family: "Newsreader", serif;
+  font-style: italic;
+  font-size: 14px;
+  color: var(--ink-dim, #888);
+}
+
+.aging-card .actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.aging-card .meta-line {
+  font-family: "DM Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--ink-dim, #888);
+  margin-top: 2px;
+}
+
+/* action buttons --------------------------------------------------- */
+.btn-primary,
+.btn-secondary {
+  font-family: "DM Mono", monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  padding: 6px 12px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-primary {
+  background: #1d1d1d;
+  color: var(--paper, #faf6f0);
+  border: 1px solid #1d1d1d;
+}
+.btn-primary:hover { background: var(--teal, #1d6e6e); border-color: var(--teal, #1d6e6e); }
+
+.btn-secondary {
+  background: transparent;
+  color: var(--ink, #2a2a2a);
+  border: 1px solid var(--ink-line, #cdb693);
+}
+.btn-secondary:hover {
+  border-color: var(--ink, #2a2a2a);
+  color: var(--ink, #2a2a2a);
+}
+
+/* decay panel grid (Aging page) ----------------------------------- */
+.decay-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-bottom: 28px;
+}
+
+@media (max-width: 1100px) {
+  .decay-grid { grid-template-columns: 1fr; }
+}
+
+/* category bars (03c mirror) -------------------------------------- */
+.cat-bar-wrap {
+  background: var(--paper-mid, #f3ecdf);
+  height: 14px;
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+  min-width: 120px;
+}
+
+.cat-bar-fill {
+  height: 100%;
+  background: var(--teal, #1d6e6e);
+  border-radius: 2px 0 0 2px;
+  transition: width 0.4s ease;
+}
+
+.cat-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: "Source Sans 3", system-ui, sans-serif;
+  font-size: 13px;
+  background: var(--paper, #faf6f0);
+}
+
+.cat-table th {
+  text-align: left;
+  padding: 9px 12px;
+  font-family: "DM Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-mid, #5a5a5a);
+  border-bottom: 1px solid var(--ink-line, #cdb693);
+  background: var(--paper-mid, #f3ecdf);
+  cursor: pointer;
+  user-select: none;
+}
+
+.cat-table th.sorted { color: var(--teal, #1d6e6e); }
+
+.cat-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--paper-dim, #ebe2cf);
+}
+
+.cat-table tr:hover td { background: var(--paper-mid, #f3ecdf); }
+
+.cat-table .cell-cat {
+  display: inline-block;
+  font-family: "DM Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 2px;
+  background: var(--paper-mid, #f3ecdf);
+  color: var(--ink, #2a2a2a);
+}
+
+.cat-table .cat-sal-median {
+  display: inline-block;
+  font-family: "DM Mono", monospace;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 2px;
+  background: var(--paper-mid, #f3ecdf);
+  color: var(--ink, #2a2a2a);
+  font-variant-numeric: tabular-nums;
+}
+
+.cat-table .cat-sal-median.high { background: rgba(90, 122, 58, 0.18); color: #4a6628; }
+.cat-table .cat-sal-median.low  { background: rgba(200, 146, 17, 0.20); color: #8a6109; }
+
+/* memory feed table (03b mirror) ---------------------------------- */
+.memory-feed-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: "Source Sans 3", system-ui, sans-serif;
+  font-size: 12.5px;
+  background: var(--paper, #faf6f0);
+}
+
+.memory-feed-table th {
+  text-align: left;
+  padding: 9px 12px;
+  font-family: "DM Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-mid, #5a5a5a);
+  border-bottom: 1px solid var(--ink-line, #cdb693);
+  background: var(--paper-mid, #f3ecdf);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.memory-feed-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--paper-dim, #ebe2cf);
+  vertical-align: top;
+}
+
+.memory-feed-table tr:hover td { background: var(--paper-mid, #f3ecdf); }
+
+.memory-feed-table .cell-id {
+  font-family: "DM Mono", monospace;
+  font-size: 11px;
+  color: var(--auber, #8e3d6f);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.memory-feed-table .cell-id:hover { text-decoration: underline; }
+
+.memory-feed-table .cell-ts {
+  font-family: "DM Mono", monospace;
+  font-size: 11px;
+  color: var(--ink-mid, #5a5a5a);
+  white-space: nowrap;
+}
+
+.memory-feed-table .cell-content {
+  font-family: "Newsreader", serif;
+  font-size: 14px;
+  color: var(--ink, #2a2a2a);
+  max-width: 540px;
+  line-height: 1.45;
+}
+
+.memory-feed-table .cell-sender {
+  font-family: "DM Mono", monospace;
+  font-size: 11px;
+  color: var(--ink-mid, #5a5a5a);
+  white-space: nowrap;
+}
+
+.memory-feed-table .cell-cat {
+  display: inline-block;
+  font-family: "DM Mono", monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 2px;
+  background: var(--paper-mid, #f3ecdf);
+  color: var(--ink, #2a2a2a);
+  white-space: nowrap;
+}
+
+.memory-feed-table .cell-cat.engineering { background: rgba(74, 110, 126, 0.18); color: var(--slate, #4a6e7e); }
+.memory-feed-table .cell-cat.project     { background: rgba(29, 110, 110, 0.18); color: var(--teal, #1d6e6e); }
+.memory-feed-table .cell-cat.feedback    { background: rgba(142, 61, 111, 0.18); color: var(--auber, #8e3d6f); }
+.memory-feed-table .cell-cat.reference   { background: rgba(200, 146, 17, 0.20); color: #8a6109; }
+.memory-feed-table .cell-cat.preference  { background: rgba(184, 92, 42, 0.16); color: var(--terra, #b85c2a); }
+
+.memory-feed-table .cell-sal {
+  position: relative;
+  width: 100px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.memory-feed-table .cell-sal .sal-bar {
+  display: inline-block;
+  width: 56px;
+  height: 6px;
+  background: var(--paper-mid, #f3ecdf);
+  border-radius: 2px;
+  vertical-align: middle;
+  margin-right: 6px;
+  overflow: hidden;
+  position: relative;
+}
+
+.memory-feed-table .cell-sal .sal-bar::after {
+  content: "";
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: var(--sal-pct, 0%);
+  background: linear-gradient(90deg, var(--gold, #c89211), var(--teal, #1d6e6e));
+  border-radius: 2px;
+}
+
+.memory-feed-table .cell-sal .sal-num {
+  font-family: "DM Mono", monospace;
+  font-size: 11px;
+  color: var(--ink-mid, #5a5a5a);
+}
+
+/* themes UMAP outlier callouts ---------------------------------- */
+.themes-callout-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.themes-callout-grid .aging-card {
+  border-top-color: var(--teal, #1d6e6e);
+}
+
+/* encoding gate -------------------------------------------------- */
+.gate-bar {
+  height: 44px;
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--ink-line, #cdb693);
+  margin: 14px 0 8px;
+}
+
+.gate-bar .pass {
+  background: #5a7a3a;
+  color: white;
+  display: flex; align-items: center; justify-content: center;
+  font-family: "DM Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  font-weight: 500;
+}
+
+.gate-bar .reject {
+  background: #a13e2a;
+  color: white;
+  display: flex; align-items: center; justify-content: center;
+  font-family: "DM Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  font-weight: 500;
+}
+
+.gate-reasons {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: "Source Sans 3", system-ui, sans-serif;
+  font-size: 13px;
+}
+
+.gate-reasons th, .gate-reasons td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--paper-dim, #ebe2cf);
+}
+
+.gate-reasons th {
+  font-family: "DM Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-mid, #5a5a5a);
+  background: var(--paper-mid, #f3ecdf);
+}
+
+.gate-reasons code {
+  font-family: "DM Mono", monospace;
+  background: var(--paper-mid, #f3ecdf);
+  padding: 1px 6px;
+  border-radius: 2px;
+  font-size: 11px;
+}
+
+/* ops streams (06 mirror) ---------------------------------------- */
+.ops-log-stream {
+  background: #1d1d1d;
+  color: #d8e8e6;
+  padding: 14px 18px;
+  font-family: "DM Mono", monospace;
+  font-size: 11px;
+  line-height: 1.65;
+  border-left: 3px solid var(--teal, #1d6e6e);
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.ops-log-stream .line { white-space: nowrap; padding: 1px 0; }
+.ops-log-stream .ts { color: #8a9b9b; margin-right: 8px; }
+.ops-log-stream .evt { color: #d8e8e6; font-weight: 500; margin-right: 8px; }
+.ops-log-stream .kv { color: #c8a878; }
+.ops-log-stream .val { color: #f0e8d8; }
+.ops-log-stream .line.store .evt { color: #f5b88a; }
+.ops-log-stream .line.search .evt { color: #e8c878; }
+.ops-log-stream .line.life .evt { color: #d8a8c8; }
+.ops-log-stream .line.ops .evt { color: #8ab8c8; }
+.ops-log-stream .line.warn { background: rgba(196, 57, 42, 0.18); }
+.ops-log-stream .line.warn .evt { color: #f5a898; }
+
+/* heatmap grid (01 overview) ------------------------------------- */
+.activity-heatmap {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 6px;
+  margin: 14px 0 8px;
+}
+
+.activity-heatmap .week {
+  display: grid;
+  grid-template-rows: repeat(7, 1fr);
+  gap: 3px;
+}
+
+.activity-heatmap .day {
+  aspect-ratio: 1;
+  background: var(--paper-mid, #f3ecdf);
+  border: 1px solid var(--paper-dim, #ebe2cf);
+  border-radius: 2px;
+  transition: transform 0.12s;
+}
+
+.activity-heatmap .day:hover { transform: scale(1.15); }
+
+.activity-heatmap .day.l1 { background: #e8d4b8; border-color: #d8c098; }
+.activity-heatmap .day.l2 { background: #c8a878; border-color: #ab8a5c; }
+.activity-heatmap .day.l3 { background: var(--teal, #1d6e6e); border-color: #155757; }
+.activity-heatmap .day.l4 { background: #0a3838; border-color: #0a3838; }
+
+.heatmap-axis {
+  display: flex;
+  justify-content: space-between;
+  font-family: "DM Mono", monospace;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--ink-dim, #888);
+  margin-top: 4px;
+}
+
+/* category chip bar (02-feed.html) -------------------------------- */
+
+/* Container row: warm-paper bg, thin bottom rule, anchors the chips */
+.category-chip-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  padding: 14px 0 16px;
+  margin: 0 0 2px;
+  border-bottom: 1px solid var(--ink-line, #cdb693);
+}
+
+.category-chip-bar-label {
+  font-family: "DM Mono", monospace;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-dim, #888);
+  margin-right: 4px;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+/* Individual chip */
+.cat-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  font-family: "DM Mono", monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  padding: 4px 11px 4px 11px;
+  border-radius: 3px;
+  border: 1px solid var(--ink-line, #cdb693);
+  background: var(--paper-mid, #f3ecdf);
+  color: var(--ink, #2a2a2a);
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background 0.13s ease,
+    color 0.13s ease,
+    border-color 0.13s ease,
+    box-shadow 0.13s ease;
+  white-space: nowrap;
+}
+
+.cat-filter-chip:hover:not(.active) {
+  border-color: var(--ink, #2a2a2a);
+  box-shadow: 0 2px 6px -2px rgba(200, 146, 17, 0.30);
+}
+
+/* Active state: teal fill, paper text */
+.cat-filter-chip.active {
+  background: var(--teal, #1d6e6e);
+  color: var(--paper, #faf6f0);
+  border-color: var(--teal, #1d6e6e);
+  box-shadow: 0 2px 8px -3px rgba(29, 110, 110, 0.45);
+}
+
+/* Count badge rendered inline after the "·" separator */
+.cat-filter-chip .chip-count {
+  font-size: 9.5px;
+  letter-spacing: 0.02em;
+  opacity: 0.72;
+  margin-left: 5px;
+}
+
+.cat-filter-chip.active .chip-count {
+  opacity: 0.85;
+}
+
+/* Loading skeleton for chip bar (while categories fetch) */
+.cat-chip-skeleton {
+  display: inline-block;
+  width: 80px;
+  height: 25px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--paper-mid, #f3ecdf) 25%, var(--paper-dim, #ebe2cf) 50%, var(--paper-mid, #f3ecdf) 75%);
+  background-size: 200% 100%;
+  animation: chipSkel 1.2s ease infinite;
+}
+
+@keyframes chipSkel {
+  0%   { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+
+/* copy hint after a copy event ----------------------------------- */
+.copy-hint {
+  display: inline-block;
+  margin-left: 6px;
+  font-family: "DM Mono", monospace;
+  font-size: 9px;
+  color: var(--teal, #1d6e6e);
+  animation: fadeHint 1.6s ease;
+}
+
+@keyframes fadeHint {
+  0%, 80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ================================================================
+   LIFECYCLE PAGE (09-lifecycle.html) — lane color CSS vars
+   Declares --teal / --terra / --gold / --slate so lifecycle SVG
+   and cards can reference them without touching base styles.
+   These mirror the values already used inline in styles-observatory.css.
+================================================================ */
+:root {
+  --teal:  #1d6e6e;   /* teal alias for lane naming consistency */
+  --terra: #b85c2a;
+  --gold:  #c89211;
+  --slate: #4a6e7e;
+}

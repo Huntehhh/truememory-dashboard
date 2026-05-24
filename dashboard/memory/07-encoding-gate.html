@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TrueMemory · Memory Encoding Gate</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&family=Source+Sans+3:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_assets/styles.css">
+<link rel="stylesheet" href="_assets/styles-observatory.css">
+<link rel="stylesheet" href="_assets/styles-usage.css">
+<link rel="stylesheet" href="_assets/styles-memory.css">
+<script src="https://cdn.plot.ly/plotly-2.35.0.min.js" charset="utf-8"></script>
+</head>
+<body>
+<div class="app">
+  <header class="brand"><span class="logo">True<em>Memory</em></span><span class="ver">MEMORY</span></header>
+  <nav class="topbar">
+    <div class="crumb"><a href="00-index.html">Memory</a> <span class="sep">/</span> Encoding Gate</div>
+    <div class="pill-toggle">
+      <a class="active" href="00-index.html">MEMORY</a>
+    </div>
+    <button class="refresh-btn" id="refresh-btn" type="button">[ REFRESH ]</button>
+  </nav>
+  <aside class="sidebar">
+    <div class="sidebar-section">Story</div>
+    <a class="nav-item" href="00-index.html"><span>Index</span><span class="num">00</span></a>
+    <a class="nav-item" href="01-overview.html"><span>Overview</span><span class="num">01</span></a>
+    <a class="nav-item" href="02-feed.html"><span>Memory Feed</span><span class="num">02</span></a>
+    <div class="sidebar-section">Build</div>
+    <a class="nav-item" href="03-by-category.html"><span>By Category</span><span class="num">03</span></a>
+    <a class="nav-item" href="04-aging.html"><span>Aging</span><span class="num">04</span></a>
+    <a class="nav-item" href="05-themes.html"><span>Themes (UMAP)</span><span class="num">05</span></a>
+    <div class="sidebar-section">Operate</div>
+    <a class="nav-item" href="06-operations.html"><span>Operations</span><span class="num">06</span></a>
+    <a class="nav-item active" href="07-encoding-gate.html"><span>Encoding Gate</span><span class="num">07</span></a>
+    <a class="nav-item" href="08-open-loops.html"><span>Open Loops</span><span class="num">08</span></a>
+    <div class="sidebar-section">Reference</div>
+    <a class="nav-item" href="09-lifecycle.html"><span>Lifecycle</span><span class="num">09</span></a>
+  </aside>
+
+  <main class="main">
+    <div class="view-head">
+      <div>
+        <h1 class="view-title">07 · Encoding <em>Gate</em></h1>
+        <p class="view-dek">What gets into memory vs. what gets filtered. Pass rate, reject reasons, per-session consistency over the last 14 sessions.</p>
+      </div>
+      <div class="view-meta">stop-hook ingest · last 7d</div>
+    </div>
+
+    <section id="gate-mount"></section>
+  </main>
+</div>
+
+<script src="_assets/render-memory.js"></script>
+<script>
+(async function init() {
+  const refresh = () => GTBM.renderEncodingGate(document.getElementById('gate-mount'));
+  GTBM.attachRefresh(document.getElementById('refresh-btn'), refresh);
+  await refresh();
+})();
+</script>
+</body>
+</html>

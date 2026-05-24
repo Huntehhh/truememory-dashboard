@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TrueMemory · Memory Lifecycle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&family=Source+Sans+3:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_assets/styles.css">
+<link rel="stylesheet" href="_assets/styles-observatory.css">
+<link rel="stylesheet" href="_assets/styles-usage.css">
+<link rel="stylesheet" href="_assets/styles-memory.css">
+</head>
+<body>
+<div class="app">
+
+  <header class="brand">
+    <span class="logo">True<em>Memory</em></span>
+    <span class="ver">MEMORY</span>
+  </header>
+
+  <nav class="topbar">
+    <div class="crumb"><a href="00-index.html">Memory</a> <span class="sep">/</span> Lifecycle</div>
+    <div class="pill-toggle">
+      <a class="active" href="00-index.html">MEMORY</a>
+    </div>
+    <button class="refresh-btn" id="refresh-btn" type="button" style="visibility:hidden">[ REFRESH ]</button>
+  </nav>
+
+  <aside class="sidebar">
+    <div class="sidebar-section">Story</div>
+    <a class="nav-item" href="00-index.html"><span>Index</span><span class="num">00</span></a>
+    <a class="nav-item" href="01-overview.html"><span>Overview</span><span class="num">01</span></a>
+    <a class="nav-item" href="02-feed.html"><span>Memory Feed</span><span class="num">02</span></a>
+    <div class="sidebar-section">Build</div>
+    <a class="nav-item" href="03-by-category.html"><span>By Category</span><span class="num">03</span></a>
+    <a class="nav-item" href="04-aging.html"><span>Aging</span><span class="num">04</span></a>
+    <a class="nav-item" href="05-themes.html"><span>Themes (UMAP)</span><span class="num">05</span></a>
+    <div class="sidebar-section">Operate</div>
+    <a class="nav-item" href="06-operations.html"><span>Operations</span><span class="num">06</span></a>
+    <a class="nav-item" href="07-encoding-gate.html"><span>Encoding Gate</span><span class="num">07</span></a>
+    <a class="nav-item" href="08-open-loops.html"><span>Open Loops</span><span class="num">08</span></a>
+    <div class="sidebar-section">Reference</div>
+    <a class="nav-item active" href="09-lifecycle.html"><span>Lifecycle</span><span class="num">09</span></a>
+    <div class="sidebar-footer">
+      API: <a href="/api/memory/kpi">/api/memory</a>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <div class="view-head">
+      <div>
+        <h1 class="view-title">09 · Memory <em>Lifecycle</em></h1>
+        <p class="view-dek">How a single fact moves through TrueMemory — from spoken word to dormant record to retrieved echo. Click any node to expand its phase detail.</p>
+      </div>
+      <div class="view-meta">static reference · v1 architecture · 12 phases</div>
+    </div>
+
+    <!-- ================================================================
+         DIAGRAM
+    ================================================================ -->
+    <section class="lc-diagram-wrap">
+
+      <!-- figure caption stamp -->
+      <div class="lc-fig-stamp">fig. 01 — non-linear lifecycle · 12 phases · 3 trigger paths</div>
+
+      <!-- SVG -->
+      <div class="lc-svg-scroll">
+        <svg class="lc-svg" viewBox="0 0 1140 1090" preserveAspectRatio="xMidYMid meet" role="img" aria-label="TrueMemory 12-phase lifecycle diagram">
+
+          <!-- ===== ARROW MARKERS ===== -->
+          <defs>
+            <marker id="lc-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#b8a988"/>
+            </marker>
+            <marker id="lc-arrow-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#1d6e6e"/>
+            </marker>
+            <marker id="lc-arrow-terra" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#b85c2a"/>
+            </marker>
+            <marker id="lc-arrow-gold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#c89211"/>
+            </marker>
+
+            <!-- paper-warm rect fill for nodes -->
+            <filter id="lc-shadow" x="-5%" y="-5%" width="110%" height="110%">
+              <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="rgba(0,0,0,0.06)"/>
+            </filter>
+          </defs>
+
+          <!-- ===== PHASE NODES ===== -->
+
+          <!-- 1. AWAKE — teal accent (always-on spine) -->
+          <g class="lc-node" data-phase="awake" tabindex="0" role="button" aria-label="Awake phase">
+            <rect class="lc-node-rect lc-teal" x="440" y="20" width="260" height="72" rx="0" filter="url(#lc-shadow)"/>
+            <text class="lc-node-label" x="570" y="48">AWAKE</text>
+            <text class="lc-node-sub" x="570" y="64">Claude Code session</text>
+            <text class="lc-phase-num" x="456" y="40">01</text>
+          </g>
+
+          <!-- 2. BUFFER -->
+          <g class="lc-node" data-phase="buffer" tabindex="0" role="button" aria-label="Buffer phase">
+            <rect class="lc-node-rect" x="450" y="158" width="240" height="60" rx="0" filter="url(#lc-shadow)"/>
+            <text class="lc-node-label" x="570" y="183">BUFFER</text>
+            <text class="lc-node-sub" x="570" y="199">transcript accumulates</text>
+            <text class="lc-phase-num" x="466" y="175">02</text>
+          </g>
+
+          <!-- 3a. STOP HOOK — terra accent (trigger lane) -->
+          <g class="lc-node" data-phase="stop-hook" tabindex="0" role="button" aria-label="Stop Hook trigger">
+            <rect class="lc-node-rect lc-terra" x="60" y="285" width="220" height="72" rx="0" filter="url(#lc-shadow)"/>
+            <text class="lc-node-label" x="170" y="313">STOP HOOK</text>
+            <text class="lc-node-sub" x="170" y="330">session ends · trigger 1</text>
+            <text class="lc-phase-num" x="76" y="305">3a</text>
+          </g>
+
+          <!-- 3b. INCREMENTAL — terra accent -->
+          <g class="lc-node" data-phase="incremental" tabindex="0" role="button" aria-label="Incremental trigger">
+            <rect class="lc-node-rect lc-terra" x="450" y="285" width="240" height="72" rx="0" filter="url(#lc-shadow)"/>
+            <text class="lc-node-label" x="570" y="310">INCREMENTAL</text>
+            <text class="lc-node-sub" x="570" y="326">4 hr in-session · trigger 2</text>
+            <text class="lc-phase-num" x="466" y="305">3b</text>
+          </g>
+
+          <!-- 3c. BACKLOG — terra accent -->
+          <g class="lc-node" data-phase="backlog" tabindex="0" role="button" aria-label="Backlog drainer trigger">
+            <rect class="lc-node-rect lc-terra" x="860" y="285" width="220" height="72" rx="0" filter="url(#lc-shadow)"/>
+            <text class="lc-node-label" x="970" y="310">BACKLOG</text>
+            <text class="lc-node-sub" x="970" y="326">30–120 s · trigger 3</text>
+            <text class="lc-phase-num" x="876" y="305">3c</text>
+          </g>
+
+          <!-- 4. ASLEEP -->
+          <g class="lc-node" data-phase="asleep" tabindex="0" role="button" aria-label="Asleep phase">
+            <rect class="lc-node-rect" x="450" y="424" width="240" height="66" rx="0" filter="url(#lc-shadow)"/>
+            <text class="lc-node-label" x="570" y="451">ASLEEP</text>
+            <text class="lc-node-sub" x="570" y="468">detached ingest proc</text>
+            <text class="lc-phase-num" x="466" y="442">04</text>
+          </g>
+
+          <!-- 5. EXTRACT -->
+          <g class="lc-node" data-phase="extract" tabindex="0" role="button" aria-label="Extract phase">
+            <rect class="lc-node-rect" x="450" y="552" width="240" height="60" rx="0" filter="url(#lc-shadow)"/>
+            <text class="lc-node-label" x="570" y="577">EXTRACT</text>
+            <text class="lc-node-sub" x="570" y="594">LLM · 20K chunks</text>
+            <text class="lc-phase-num" x="466" y="570">05</text>
+          </g>
+
+          <!-- 6. GATE — terra accent (filter decision) -->
+          <g class="lc-node" data-phase="gate" tabindex="0" role="button" aria-label="Gate phase">
+            <rect class="lc-node-rect lc-terra-soft" x="450" y="678" width="240" height="60" rx="0" filter="url(#lc-shadow)"/>
+            <text class="lc-node-label" x="570" y="703">GATE</text>
+            <text class="lc-node-sub" x="570" y="720">novelty · salience · pe</text>
+            <text class="lc-phase-num" x="466" y="695">06</text>
+          </g>
+
+          <!-- 6b. REJECT — pure terra (destructive adjacent) -->
+          <g class="lc-node" data-phase="reject" tabindex="0" role="button" aria-label="Reject branch">
+            <rect class="lc-node-rect lc-terra" x="755" y="678" width="150" height="60" rx="0" filter="url(#lc-shadow)"/>
+            <text class="lc-node-label" x="830" y="703">REJECT</text>
+            <text class="lc-node-sub" x="830" y="720">logged only</text>
+            <text class="lc-phase-num" x="769" y="695">✕</text>
+          </g>
+
+          <!-- 7. DEDUP -->
+          <g class="lc-node" data-phase="dedup" tabindex="0" role="button" aria-label="Dedup phase">
+            <rect class="lc-node-rect" x="450" y="800" width="240" height="60" rx="0" filter="url(#lc-shadow)"/>
+            <text class="lc-node-label" x="570" y="825">DEDUP</text>
+            <text class="lc-node-sub" x="570" y="842">sim &gt; 0.92 → skip or update</text>
+            <text class="lc-phase-num" x="466" y="817">07</text>
+          </g>
+
+          <!-- 8a. INSERT — teal (write path) -->
+          <g class="lc-node" data-phase="insert" tabindex="0" role="button" aria-label="Insert phase">
+            <rect class="lc-node-rect lc-teal-soft" x="320" y="912" width="200" height="60" rx="0" filter="url(#lc-shadow)"/>
+            <text class="lc-node-label" x="420" y="937">INSERT</text>
+            <text class="lc-node-sub" x="420" y="954">5 signals fire</text>
+            <text class="lc-phase-num" x="336" y="930">8a</text>
+          </g>
+
+          <!-- 8b. UPDATE — teal (write path) -->
+          <g class="lc-node" data-phase="update" tabindex="0" role="button" aria-label="Update phase">
+            <rect class="lc-node-rect lc-teal-soft" x="620" y="912" width="200" height="60" rx="0" filter="url(#lc-shadow)"/>
+            <text class="lc-node-label" x="720" y="937">UPDATE</text>
+            <text class="lc-node-sub" x="720" y="954">re-embed existing</text>
+            <text class="lc-phase-num" x="636" y="930">8b</text>
+          </g>
+
+          <!-- 9. DORMANT — gold accent (steady state) -->
+          <g class="lc-node" data-phase="dormant" tabindex="0" role="button" aria-label="Dormant phase">
+            <rect class="lc-node-rect lc-gold" x="420" y="1022" width="300" height="52" rx="0" filter="url(#lc-shadow)"/>
+            <text class="lc-node-label lc-label-lg" x="570" y="1046">DORMANT</text>
+            <text class="lc-node-sub" x="570" y="1062">messages row · permanent</text>
+            <text class="lc-phase-num" x="436" y="1040">09</text>
+          </g>
+
+          <!-- ===== FLOW LINES ===== -->
+
+          <!-- 1 → 2 -->
+          <path class="lc-edge" d="M 570 92 L 570 158" marker-end="url(#lc-arrow)"/>
+          <text class="lc-edge-label" x="600" y="128">turn N</text>
+
+          <!-- BUFFER feedback loop (accumulate) -->
+          <path class="lc-edge lc-feedback" d="M 450 182 Q 375 180 375 155 Q 375 118 450 135" marker-end="url(#lc-arrow-teal)"/>
+          <text class="lc-edge-label lc-teal-text" x="330" y="152">accumulate</text>
+
+          <!-- 2 → 3a (stop hook) -->
+          <path class="lc-edge lc-dashed" d="M 510 218 Q 400 248 280 285" marker-end="url(#lc-arrow)"/>
+          <text class="lc-edge-label" x="370" y="248">session end</text>
+
+          <!-- 2 → 3b (incremental) -->
+          <path class="lc-edge lc-dashed" d="M 570 218 L 570 285" marker-end="url(#lc-arrow)"/>
+          <text class="lc-edge-label" x="606" y="254">4 hr mark</text>
+
+          <!-- 2 → 3c (backlog) -->
+          <path class="lc-edge lc-dashed" d="M 630 218 Q 760 248 870 285" marker-end="url(#lc-arrow)"/>
+          <text class="lc-edge-label" x="775" y="248">queue work</text>
+
+          <!-- 3a → 4 -->
+          <path class="lc-edge" d="M 280 330 Q 390 385 450 430" marker-end="url(#lc-arrow)"/>
+
+          <!-- 3b → 4 -->
+          <path class="lc-edge" d="M 570 357 L 570 424" marker-end="url(#lc-arrow)"/>
+
+          <!-- 3c → 4 -->
+          <path class="lc-edge" d="M 860 330 Q 750 385 690 430" marker-end="url(#lc-arrow)"/>
+
+          <!-- 4 → 5 -->
+          <path class="lc-edge" d="M 570 490 L 570 552" marker-end="url(#lc-arrow)"/>
+
+          <!-- 5 → 6 -->
+          <path class="lc-edge" d="M 570 612 L 570 678" marker-end="url(#lc-arrow)"/>
+          <text class="lc-edge-label" x="610" y="648">atomic facts</text>
+
+          <!-- 6 → REJECT -->
+          <path class="lc-edge lc-destructive" d="M 690 708 L 755 708" marker-end="url(#lc-arrow-terra)"/>
+          <text class="lc-edge-label lc-terra-text" x="722" y="700">below thresh.</text>
+
+          <!-- 6 → 7 -->
+          <path class="lc-edge" d="M 570 738 L 570 800" marker-end="url(#lc-arrow)"/>
+
+          <!-- 7 → 8a (INSERT) -->
+          <path class="lc-edge" d="M 520 860 Q 475 880 420 912" marker-end="url(#lc-arrow)"/>
+          <text class="lc-edge-label" x="435" y="883">new</text>
+
+          <!-- 7 → 8b (UPDATE) -->
+          <path class="lc-edge" d="M 620 860 Q 665 880 720 912" marker-end="url(#lc-arrow)"/>
+          <text class="lc-edge-label" x="700" y="883">match</text>
+
+          <!-- 7 → DORMANT direct (skip) -->
+          <path class="lc-edge lc-dashed" d="M 690 830 Q 770 900 720 1022" marker-end="url(#lc-arrow)"/>
+          <text class="lc-edge-label" x="765" y="920">skip (no write)</text>
+
+          <!-- 8a → DORMANT -->
+          <path class="lc-edge" d="M 450 972 Q 490 997 490 1022" marker-end="url(#lc-arrow)"/>
+
+          <!-- 8b → DORMANT -->
+          <path class="lc-edge" d="M 690 972 Q 650 997 650 1022" marker-end="url(#lc-arrow)"/>
+
+          <!-- Telemetry burst annotation -->
+          <text class="lc-signal-note" x="330" y="995">+5 telemetry rows</text>
+
+        </svg>
+      </div>
+
+      <!-- Legend -->
+      <div class="lc-legend">
+        <div class="lc-legend-item"><span class="lc-legend-swatch lc-swatch-solid"></span><span>happy path</span></div>
+        <div class="lc-legend-item"><span class="lc-legend-swatch lc-swatch-dashed"></span><span>conditional branch</span></div>
+        <div class="lc-legend-item"><span class="lc-legend-swatch lc-swatch-feedback"></span><span>feedback loop</span></div>
+        <div class="lc-legend-item"><span class="lc-legend-swatch lc-swatch-destructive"></span><span>destructive · rare</span></div>
+      </div>
+
+    </section>
+
+    <!-- ================================================================
+         PHASE DETAIL PANEL
+    ================================================================ -->
+    <section class="lc-detail-panel" id="lc-detail">
+      <div class="lc-detail-stamp" id="lc-detail-stamp">phase detail · click a node above</div>
+      <div class="lc-detail-inner">
+        <div class="lc-detail-head">
+          <span class="lc-detail-name" id="lc-detail-name">Click a node to inspect</span>
+          <span class="lc-detail-meta" id="lc-detail-meta">—</span>
+        </div>
+        <div class="lc-detail-body" id="lc-detail-body">
+          <p>Each node above represents a distinct phase a memory can occupy. Click any node — including the rare destructive ones — to read what happens, when, and which files carry it out.</p>
+        </div>
+        <div class="lc-detail-tech" id="lc-detail-tech" style="display:none">
+          <span class="lc-detail-tech-label">technical:</span>
+          <span class="lc-detail-tech-text" id="lc-detail-tech-text"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================
+         THREE SLEEP BEHAVIORS
+    ================================================================ -->
+    <h2 style="margin-top: 2.5rem">The three <em>sleep</em> behaviors</h2>
+    <p>TrueMemory has three distinct paths that trigger the same ingest pipeline — only two of them have anything to do with session end.</p>
+
+    <div class="lc-sleep-grid">
+
+      <div class="lc-sleep-card lc-sleep-terra">
+        <div class="lc-sleep-trigger">trigger 1 of 3</div>
+        <div class="lc-sleep-freq">on session end · synchronous</div>
+        <h3>Stop Hook</h3>
+        <p>You close the session. The harness fires a Stop event handler that validates the transcript, then spawns a detached subprocess to do the actual work. Returns in milliseconds — consolidation runs while you are away.</p>
+      </div>
+
+      <div class="lc-sleep-card lc-sleep-terra">
+        <div class="lc-sleep-trigger">trigger 2 of 3</div>
+        <div class="lc-sleep-freq">every 4 hours · silent</div>
+        <h3>Incremental Extraction</h3>
+        <p>A hook fires on every UserPromptSubmit and checks the mtime of <code>~/.truememory/last_incremental_extraction</code>. If 4+ hours have elapsed, it triggers extraction mid-session — memories can land in the DB without you closing anything.</p>
+      </div>
+
+      <div class="lc-sleep-card lc-sleep-terra">
+        <div class="lc-sleep-trigger">trigger 3 of 3</div>
+        <div class="lc-sleep-freq">every 30–120 s · daemon</div>
+        <h3>Backlog Drainer</h3>
+        <p>A daemon thread inside the MCP server polls <code>~/.truememory/backlog/*.json</code> every 30 seconds. Orphaned sessions — from crashes or kills mid-ingest — get re-spawned as new subprocesses. As long as the MCP server is alive, it is watching.</p>
+      </div>
+
+    </div>
+
+    <!-- ================================================================
+         WHAT DOES NOT HAPPEN
+    ================================================================ -->
+    <h2>What the lifecycle <em>does not</em> do</h2>
+    <p>The schema implies a richer story than the runtime delivers. These are the things that look like they happen — but do not.</p>
+
+    <div class="lc-not-grid">
+
+      <div class="lc-not-item">
+        <div class="lc-not-name">consolidation</div>
+        <div class="lc-not-explain"><code>build_summaries()</code> is never auto-called. Rollups into the summaries table only happen via manual <code>engine.consolidate()</code> or truememory_configure.</div>
+      </div>
+
+      <div class="lc-not-item">
+        <div class="lc-not-name">contradiction detection</div>
+        <div class="lc-not-explain"><code>detect_contradictions()</code> is gated under <code>consolidate()</code>. The fact_timeline table stays empty in normal use.</div>
+      </div>
+
+      <div class="lc-not-item">
+        <div class="lc-not-name">episode assignment</div>
+        <div class="lc-not-explain">The episode_id column exists on every row but is never written during ingestion. Episodes are detected during consolidate() only.</div>
+      </div>
+
+      <div class="lc-not-item">
+        <div class="lc-not-name">surprise scoring (native)</div>
+        <div class="lc-not-explain">The surprise_scores table is built by <code>build_surprise_index()</code> during consolidate(). Empty in normal use. The observatory re-implements surprise at ingest.</div>
+      </div>
+
+      <div class="lc-not-item">
+        <div class="lc-not-name">landmark events</div>
+        <div class="lc-not-explain"><code>detect_landmark_events()</code> pattern-matches messages against life-event regexes. Only runs under consolidate(). Table empty in normal use.</div>
+      </div>
+
+      <div class="lc-not-item">
+        <div class="lc-not-name">salience decay</div>
+        <div class="lc-not-explain">There is no salience column on messages at all. Salience is computed by a pure function from content; the score is never stored, never modified, never aged.</div>
+      </div>
+
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination" style="margin-top: 3rem">
+      <a class="prev" href="08-open-loops.html">
+        <span class="label">Previous</span>
+        <span class="title">08 · Open Loops</span>
+      </a>
+      <a class="next disabled" href="#" aria-disabled="true">
+        <span class="label">Next</span>
+        <span class="title">—</span>
+      </a>
+    </div>
+
+  </main>
+</div>
+
+<style>
+/* ==================================================================
+   LIFECYCLE PAGE — local styles scoped to lc-* classes
+   Appended here to avoid a separate file; uses existing CSS vars.
+================================================================== */
+
+/* ---- Diagram wrapper ---- */
+.lc-diagram-wrap {
+  position: relative;
+  background: var(--paper-warm, #f3ecdf);
+  border: 1px solid var(--rule, #ddd2bd);
+  padding: 2rem 2rem 1.5rem;
+  margin-bottom: 1.75rem;
+}
+
+.lc-fig-stamp {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-muted, #6b6b6b);
+  margin-bottom: 1.25rem;
+}
+
+.lc-svg-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.lc-svg {
+  width: 100%;
+  min-width: 760px;
+  height: auto;
+  display: block;
+}
+
+/* ---- Node rectangles ---- */
+.lc-node-rect {
+  fill: white;
+  stroke: var(--rule-strong, #b8a988);
+  stroke-width: 1.5;
+  transition: stroke 0.18s, stroke-width 0.18s, fill 0.18s;
+}
+.lc-node-rect.lc-teal {
+  fill: rgba(29,110,110,0.06);
+  stroke: var(--teal, #1d6e6e);
+  stroke-width: 2;
+}
+.lc-node-rect.lc-teal-soft {
+  fill: rgba(29,110,110,0.04);
+  stroke: var(--teal, #1d6e6e);
+  stroke-width: 1.5;
+}
+.lc-node-rect.lc-terra {
+  fill: rgba(184,92,42,0.05);
+  stroke: var(--terra, #b85c2a);
+  stroke-width: 1.75;
+}
+.lc-node-rect.lc-terra-soft {
+  fill: rgba(184,92,42,0.04);
+  stroke: var(--terra, #b85c2a);
+  stroke-width: 1.5;
+}
+.lc-node-rect.lc-gold {
+  fill: rgba(200,146,17,0.06);
+  stroke: var(--gold, #c89211);
+  stroke-width: 2;
+}
+
+/* Node hover/active */
+.lc-node { cursor: pointer; }
+.lc-node:hover .lc-node-rect,
+.lc-node:focus .lc-node-rect { fill: var(--paper-warm, #f3ecdf); stroke-width: 2.5; }
+.lc-node.lc-active .lc-node-rect { stroke-width: 3; }
+.lc-node.lc-active .lc-node-rect:not(.lc-teal):not(.lc-terra):not(.lc-terra-soft):not(.lc-gold) {
+  stroke: var(--teal, #1d6e6e);
+}
+
+/* ---- Node text ---- */
+.lc-node-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  font-weight: 500;
+  fill: var(--ink, #1a1a1a);
+  text-anchor: middle;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+.lc-label-lg { font-size: 15px; }
+
+.lc-node-sub {
+  font-family: 'DM Mono', monospace;
+  font-size: 9.5px;
+  fill: var(--ink-muted, #6b6b6b);
+  text-anchor: middle;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+
+.lc-phase-num {
+  font-family: 'DM Mono', monospace;
+  font-size: 8px;
+  fill: var(--ink-dim, #9a9a9a);
+  letter-spacing: 0.1em;
+  font-weight: 500;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+/* ---- Flow edges ---- */
+.lc-edge {
+  stroke: var(--rule-strong, #b8a988);
+  stroke-width: 1.25;
+  fill: none;
+  opacity: 0.85;
+  marker-end: url(#lc-arrow);
+}
+.lc-edge.lc-dashed {
+  stroke-dasharray: 4 4;
+  opacity: 0.65;
+}
+.lc-edge.lc-feedback {
+  stroke: var(--teal, #1d6e6e);
+  stroke-dasharray: 6 3;
+  opacity: 0.7;
+  marker-end: url(#lc-arrow-teal);
+}
+.lc-edge.lc-destructive {
+  stroke: var(--terra, #b85c2a);
+  opacity: 0.8;
+  marker-end: url(#lc-arrow-terra);
+}
+
+.lc-edge-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  fill: var(--ink-muted, #6b6b6b);
+  text-anchor: middle;
+  letter-spacing: 0.04em;
+}
+.lc-teal-text { fill: var(--teal, #1d6e6e); }
+.lc-terra-text { fill: var(--terra, #b85c2a); }
+
+.lc-signal-note {
+  font-family: 'DM Mono', monospace;
+  font-size: 8.5px;
+  fill: var(--teal, #1d6e6e);
+  letter-spacing: 0.05em;
+  font-weight: 500;
+}
+
+/* ---- Legend ---- */
+.lc-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--rule, #ddd2bd);
+  font-family: 'DM Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--ink-muted, #6b6b6b);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.lc-legend-item { display: flex; align-items: center; gap: 0.5rem; }
+.lc-legend-swatch { display: block; width: 28px; height: 2px; }
+.lc-swatch-solid    { background: var(--rule-strong, #b8a988); }
+.lc-swatch-dashed   { background: repeating-linear-gradient(to right, var(--rule-strong) 0, var(--rule-strong) 4px, transparent 4px, transparent 8px); }
+.lc-swatch-feedback { background: repeating-linear-gradient(to right, var(--teal,#1d6e6e) 0, var(--teal,#1d6e6e) 6px, transparent 6px, transparent 9px); }
+.lc-swatch-destructive { background: var(--terra, #b85c2a); }
+
+/* ---- Phase detail panel ---- */
+.lc-detail-panel {
+  background: white;
+  border: 1px solid var(--rule, #ddd2bd);
+  border-top: 3px solid var(--teal, #1d6e6e);
+  padding: 1.5rem 1.75rem;
+  margin-bottom: 2.5rem;
+  position: relative;
+  min-height: 120px;
+  transition: border-top-color 0.25s;
+}
+.lc-detail-panel.phase-terra { border-top-color: var(--terra, #b85c2a); }
+.lc-detail-panel.phase-gold  { border-top-color: var(--gold, #c89211); }
+.lc-detail-panel.phase-slate { border-top-color: var(--slate, #4a6e7e); }
+
+.lc-detail-stamp {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ink-muted, #6b6b6b);
+  margin-bottom: 1rem;
+}
+
+.lc-detail-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.65rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.lc-detail-name {
+  font-family: 'Newsreader', serif;
+  font-variation-settings: "opsz" 30, "wght" 600;
+  font-size: 1.3rem;
+  color: var(--ink, #1a1a1a);
+}
+.lc-detail-meta {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.62rem;
+  color: var(--teal, #1d6e6e);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.lc-detail-body p {
+  font-family: 'Newsreader', serif;
+  font-variation-settings: "opsz" 14, "wght" 400;
+  font-size: 0.97rem;
+  color: var(--ink-soft, #3d3d3d);
+  line-height: 1.65;
+  margin-bottom: 0.6rem;
+  max-width: 80ch;
+}
+
+.lc-detail-tech {
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--rule, #ddd2bd);
+  font-family: 'DM Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--ink-muted, #6b6b6b);
+  line-height: 1.55;
+}
+.lc-detail-tech-label {
+  color: var(--teal, #1d6e6e);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-right: 0.5rem;
+  font-weight: 500;
+}
+
+/* ---- Sleep cards ---- */
+.lc-sleep-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+  margin: 1rem 0 2.5rem;
+}
+.lc-sleep-card {
+  background: white;
+  border: 1px solid var(--rule, #ddd2bd);
+  border-top: 3px solid var(--rule-strong, #b8a988);
+  padding: 1.25rem 1.4rem;
+  position: relative;
+}
+.lc-sleep-card.lc-sleep-terra { border-top-color: var(--terra, #b85c2a); }
+
+.lc-sleep-trigger {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--terra, #b85c2a);
+  margin-bottom: 0.25rem;
+}
+.lc-sleep-freq {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted, #6b6b6b);
+  margin-bottom: 0.65rem;
+}
+.lc-sleep-card h3 {
+  font-family: 'Newsreader', serif;
+  font-variation-settings: "opsz" 22, "wght" 600;
+  font-size: 1.1rem;
+  color: var(--ink, #1a1a1a);
+  margin: 0 0 0.6rem;
+}
+.lc-sleep-card p {
+  font-family: 'Newsreader', serif;
+  font-variation-settings: "opsz" 14, "wght" 400;
+  font-size: 0.91rem;
+  color: var(--ink-soft, #3d3d3d);
+  line-height: 1.6;
+  max-width: unset;
+  margin-bottom: 0;
+}
+
+/* ---- Not-happening grid ---- */
+.lc-not-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0 2.5rem;
+}
+.lc-not-item {
+  border-left: 2px solid var(--terra, #b85c2a);
+  padding: 0.85rem 1rem;
+  background: rgba(184,92,42,0.04);
+}
+.lc-not-name {
+  font-family: 'DM Mono', monospace;
+  color: var(--terra, #b85c2a);
+  font-size: 0.82rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.35rem;
+}
+.lc-not-explain {
+  font-family: 'Newsreader', serif;
+  font-variation-settings: "opsz" 14, "wght" 400;
+  font-size: 0.88rem;
+  color: var(--ink-muted, #6b6b6b);
+  line-height: 1.55;
+}
+
+/* ---- Refresh btn (hidden on static pages) ---- */
+button[style*="visibility:hidden"] { pointer-events: none; }
+
+/* ---- chart-card wrapper reuse for diagram section ---- */
+@media (max-width: 900px) {
+  .lc-sleep-grid { grid-template-columns: 1fr; }
+  .lc-not-grid   { grid-template-columns: 1fr; }
+  .lc-detail-head { flex-direction: column; }
+}
+</style>
+
+<script>
+/* Phase data — translated from Observatory source */
+const LC_PHASES = {
+  awake: {
+    name: "Awake — Active Session",
+    meta: "phase 01 · pre-storage",
+    accent: "",
+    body: `<p>You are talking to Claude. Every user turn is a potential candidate for memory. Tool calls and tool results get filtered out before any extraction happens.</p><p>Nothing reaches the database yet. The conversation accumulates in Claude Code's local transcript file.</p>`,
+    tech: "transcript at ~/.claude/projects/&lt;project&gt;/&lt;session-uuid&gt;.jsonl"
+  },
+  buffer: {
+    name: "Buffer — Transcript in RAM",
+    meta: "phase 02 · pre-storage",
+    accent: "",
+    body: `<p>Each turn adds to the transcript on disk. The transcript grows turn by turn — this is the feedback loop in the diagram (each turn accumulates, no DB write yet).</p><p>Nothing has been classified, scored, or saved. The full session lives only as plain text until a trigger fires.</p>`,
+    tech: "session .jsonl grows on disk · no embedding · no scoring"
+  },
+  "stop-hook": {
+    name: "Stop Hook — Session End",
+    meta: "trigger 1 of 3 · synchronous",
+    accent: "phase-terra",
+    body: `<p>You close the Claude session. The harness reads settings.json, finds the Stop event handler, and fires it. The hook validates the transcript path, checks there are at least 5 messages, then spawns a detached background process.</p><p>The hook returns in milliseconds. Everything below runs in the spawned subprocess so Claude Code can shut down cleanly.</p>`,
+    tech: "ingest/hooks/stop.py:138 → _run_background_ingestion() → subprocess.Popen()"
+  },
+  incremental: {
+    name: "Incremental Extraction — 4-hour Silent Trigger",
+    meta: "trigger 2 of 3 · in-session",
+    accent: "phase-terra",
+    body: `<p>A hook fires on every UserPromptSubmit. It checks the mtime of <code>~/.truememory/last_incremental_extraction</code>. If 4+ hours have elapsed, it triggers the same ingestion pipeline on the current transcript mid-session.</p><p>This is the quietest sleep behavior: memories can enter your DB during long sessions without you doing anything explicit.</p>`,
+    tech: "ingest/hooks/_shared.py:10-16 + user_prompt_submit.py:177-190 · TRUEMEMORY_INCREMENTAL_INTERVAL (default 14400s)"
+  },
+  backlog: {
+    name: "Backlog Drainer — Background Daemon",
+    meta: "trigger 3 of 3 · always-on",
+    accent: "phase-terra",
+    body: `<p>Inside the running MCP server, a daemon thread runs an infinite loop. Every 30 seconds (or 120 if backlog is empty), it scans <code>~/.truememory/backlog/*.json</code>. Any queued sessions — from crashes or kills mid-ingestion — get re-spawned as new ingest subprocesses.</p><p>This is the most overlooked sleep behavior. As long as the MCP server is alive, it is watching for orphaned work.</p>`,
+    tech: "mcp_server.py:1154-1156 · threading.Thread(name='backlog-drainer')"
+  },
+  asleep: {
+    name: "Asleep — Detached Ingest Process",
+    meta: "phase 04 · isolated",
+    accent: "",
+    body: `<p>All three triggers converge here: a detached process running <code>truememory-ingest ingest &lt;transcript&gt;</code>. It opens its own SQLite connection (WAL mode, busy_timeout set), auto-detects an LLM backend (claude_cli → ollama → openrouter → anthropic), and constructs the IngestionPipeline.</p><p>No DB writes happen yet. The process is fully isolated — it can crash without breaking anything.</p>`,
+    tech: "ingest/cli.py:102 → ingest/pipeline.py:162 → Memory() · auto_detect() · EncodingGate()"
+  },
+  extract: {
+    name: "Extract — LLM Fact Extraction",
+    meta: "phase 05 · LLM call",
+    accent: "",
+    body: `<p>The transcript gets parsed, filtered (no tool_use/system turns, assistant turns truncated to 500 chars), and chunked at 20K-character message boundaries — up to 20 chunks.</p><p>For each chunk, the pipeline calls <code>complete()</code> on the auto-detected LLM with the EXTRACTION_SYSTEM + EXTRACTION_PROMPT. The response is parsed as JSON and deduplicated across chunks by content.</p>`,
+    tech: "ingest/extractor.py:157 extract_facts() · prompts at lines 34 + 41 · dedup across chunks"
+  },
+  gate: {
+    name: "Gate — Three-Signal Filter",
+    meta: "phase 06 · per-fact",
+    accent: "phase-terra",
+    body: `<p>Each extracted fact runs through three sub-computations: <strong>novelty</strong> via gzip compression cost, <strong>salience</strong> via the heuristic+logistic scorer, and <strong>prediction error</strong> via embedding pair-difference.</p><p>The three combine into a weighted score (0.25 × novelty + 0.20 × salience + 0.30 × pred_error). If score ≥ 0.30 → fact passes. Otherwise it is logged as skipped_gate and never reaches the database.</p>`,
+    tech: "ingest/encoding_gate.py:203 evaluate() · threshold 0.30 (configurable per category)"
+  },
+  reject: {
+    name: "Reject — Below Threshold",
+    meta: "rejection · no write",
+    accent: "phase-terra",
+    body: `<p>The fact fails the gate. It is logged with a reason (which sub-signal was too low) but never enters the database. No telemetry signal fires for rejection — only stored memories produce signals.</p><p>The rejection appears in <code>~/.truememory/traces/*.json</code> per session, where the gate_decision signal could read from it.</p>`,
+    tech: "ingest/encoding_gate.py:231 should_encode = False · reason captured in per-session trace"
+  },
+  dedup: {
+    name: "Dedup — Similarity Check",
+    meta: "phase 07 · per-fact",
+    accent: "",
+    body: `<p>The fact survived the gate. It now searches the existing memory store for near-duplicates. If the top vector match has similarity > 0.92, the dedup logic decides whether to skip (true duplicate) or update (refined version of existing fact).</p><p>Below 0.92 similarity, a second LLM call may run to confirm. Outcome: ADD, UPDATE, or SKIP.</p>`,
+    tech: "dedup.py:67 check_duplicate() · threshold 0.92 · optional LLM verification"
+  },
+  insert: {
+    name: "Insert — New Memory",
+    meta: "phase 08a · write path",
+    accent: "",
+    body: `<p>Brand new memory. <code>engine.add()</code> inserts a row into <code>messages</code> and writes its embedding into <code>vec_messages</code> + <code>vec_messages_sep</code>. Five telemetry signals fire immediately: salience, embed_neighbor, category, gate_decision (pass), and surprise.</p><p>The only other automatic side effect: <code>update_entity_profile_incremental()</code> updates the sender's entity profile. Nothing else in the schema gets touched.</p>`,
+    tech: "pipeline.py:508 → engine.add() → INSERT messages + vec_messages + emit_* signals"
+  },
+  update: {
+    name: "Update — Refined Memory",
+    meta: "phase 08b · write path",
+    accent: "",
+    body: `<p>A new fact the dedup decided to merge into an existing memory. The existing row's content gets updated, the embedding recomputed, and the row keeps its original ID.</p><p>Telemetry signals still fire (recomputed for the new content). The memory's age stays the same — only its content changes.</p>`,
+    tech: "pipeline.py:545 → memory.update() → UPDATE messages + UPDATE vec_messages"
+  },
+  dormant: {
+    name: "Dormant — Living in the DB",
+    meta: "phase 09 · indefinite",
+    accent: "phase-gold",
+    body: `<p>The memory exists. It can be searched, can show up in results, can be forgotten by you — but nothing about it changes on its own. No aging process, no decay column, no consolidation rollup. It just <em>is</em>.</p><p>This is the steady state for ~99% of a memory's life. Everything that follows loops back here.</p>`,
+    tech: "messages row · permanent · emotional_valence always 0.0 · episode_id always NULL"
+  }
+};
+
+(function() {
+  const panel   = document.getElementById('lc-detail');
+  const stamp   = document.getElementById('lc-detail-stamp');
+  const name    = document.getElementById('lc-detail-name');
+  const meta    = document.getElementById('lc-detail-meta');
+  const body    = document.getElementById('lc-detail-body');
+  const techWrap= document.getElementById('lc-detail-tech');
+  const techTxt = document.getElementById('lc-detail-tech-text');
+
+  const ACCENT_CLASSES = ['phase-terra', 'phase-gold', 'phase-slate'];
+
+  function activate(key) {
+    const ph = LC_PHASES[key];
+    if (!ph) return;
+
+    // Update active node
+    document.querySelectorAll('.lc-node.lc-active').forEach(n => n.classList.remove('lc-active'));
+    const node = document.querySelector(`.lc-node[data-phase="${key}"]`);
+    if (node) node.classList.add('lc-active');
+
+    // Update panel accent
+    ACCENT_CLASSES.forEach(c => panel.classList.remove(c));
+    if (ph.accent) panel.classList.add(ph.accent);
+
+    // Stamp shows phase key
+    stamp.textContent = 'phase detail · ' + key.replace('-', ' ');
+
+    name.textContent  = ph.name;
+    meta.textContent  = ph.meta;
+    body.innerHTML    = ph.body;
+
+    if (ph.tech) {
+      techTxt.innerHTML = ph.tech;
+      techWrap.style.display = 'block';
+    } else {
+      techWrap.style.display = 'none';
+    }
+
+    // Scroll panel into view
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  document.querySelectorAll('.lc-node').forEach(node => {
+    node.addEventListener('click', () => activate(node.dataset.phase));
+    node.addEventListener('keypress', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        activate(node.dataset.phase);
+      }
+    });
+  });
+})();
+</script>
+
+</body>
+</html>
