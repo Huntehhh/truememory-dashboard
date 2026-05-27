@@ -14,7 +14,11 @@
 -- Single-row KPI strip. Constant `bucket` column makes CONCURRENTLY valid.
 DROP MATERIALIZED VIEW IF EXISTS mv_memory_kpi CASCADE;
 CREATE MATERIALIZED VIEW mv_memory_kpi AS
-WITH params AS (SELECT NOW() - INTERVAL '7 days' AS week_start)
+WITH params AS (
+  SELECT
+    NOW() - INTERVAL '7 days'  AS week_start,
+    NOW() - INTERVAL '14 days' AS prior_week_start
+)
 SELECT
   1::int                                                                       AS bucket,
   (SELECT COUNT(*)::bigint FROM tm_memories)                                   AS total_memories,
@@ -25,6 +29,25 @@ SELECT
     FROM tm_telemetry, params
     WHERE signal IN ('gate_decision','gate_eval') AND ts >= params.week_start
   )::numeric                                                                    AS gate_pass_rate,
+  -- gate_pass_rate_delta_pts: this-week pass rate minus prior-week (7-14d ago),
+  -- expressed in percentage POINTS (e.g. +4 means +4pts). NULL when either
+  -- window has zero gate rows — the gate_decision/gate_eval signals are not
+  -- emitted by stock TrueMemory, so this is typically NULL (graceful-empty).
+  (
+    SELECT CASE
+             WHEN this_n = 0 OR prior_n = 0 THEN NULL
+             ELSE (this_pass::numeric / this_n - prior_pass::numeric / prior_n) * 100.0
+           END
+    FROM (
+      SELECT
+        SUM(CASE WHEN ts >= p.week_start AND value_text = 'pass' THEN 1 ELSE 0 END)                       AS this_pass,
+        SUM(CASE WHEN ts >= p.week_start THEN 1 ELSE 0 END)                                               AS this_n,
+        SUM(CASE WHEN ts >= p.prior_week_start AND ts < p.week_start AND value_text = 'pass' THEN 1 ELSE 0 END) AS prior_pass,
+        SUM(CASE WHEN ts >= p.prior_week_start AND ts < p.week_start THEN 1 ELSE 0 END)                   AS prior_n
+      FROM tm_telemetry, params p
+      WHERE signal IN ('gate_decision','gate_eval') AND ts >= p.prior_week_start
+    ) g
+  )::numeric                                                                    AS gate_pass_rate_delta_pts,
   (
     SELECT COUNT(*)::bigint
     FROM tm_telemetry, params
@@ -37,20 +60,54 @@ SELECT
   )                                                                             AS db_size_bytes,
   (
     SELECT COUNT(*)::bigint FROM tm_memories, params WHERE created_at >= params.week_start
-  )                                                                             AS growth_this_week
+  )                                                                             AS growth_this_week,
+  -- growth_pct_7d: fractional change in corpus size vs 7 days ago.
+  -- baseline = total rows whose created_at is older than week_start; the
+  -- newer rows are the numerator. NULL when the baseline is 0 (cold corpus)
+  -- so the frontend renders an em-dash instead of a divide-by-zero spike.
+  (
+    SELECT CASE WHEN baseline = 0 THEN NULL
+                ELSE added::numeric / baseline
+           END
+    FROM (
+      SELECT
+        COUNT(*) FILTER (WHERE created_at >= p.week_start)                          AS added,
+        COUNT(*) FILTER (WHERE created_at IS NOT NULL AND created_at < p.week_start) AS baseline
+      FROM tm_memories, params p
+    ) gp
+  )::numeric                                                                    AS growth_pct_7d
 WITH NO DATA;
 CREATE UNIQUE INDEX idx_mv_memory_kpi_bucket ON mv_memory_kpi (bucket);
 
 -- ---------- mv_memory_by_category_30d ---------------------------------------
+-- retrievals_7d: per-category count of memory_returned telemetry events in the
+-- last 7 days, joined memory_id -> tm_memories.category. memory_returned is a
+-- live signal (flows on stock TrueMemory), so this column lights up with real
+-- data. The category key matches the COALESCE(NULLIF(category,''),
+-- '(uncategorized)') projection below so the LEFT JOIN aligns 1:1.
 DROP MATERIALIZED VIEW IF EXISTS mv_memory_by_category_30d CASCADE;
 CREATE MATERIALIZED VIEW mv_memory_by_category_30d AS
+WITH retr_7d AS (
+  SELECT
+    COALESCE(NULLIF(m.category, ''), '(uncategorized)') AS category,
+    COUNT(*)::bigint                                    AS retrievals_7d
+  FROM tm_telemetry t
+  JOIN tm_memories m ON m.id = t.memory_id
+  WHERE t.signal = 'memory_returned'
+    AND t.memory_id IS NOT NULL
+    AND t.ts >= NOW() - INTERVAL '7 days'
+  GROUP BY 1
+)
 SELECT
-  COALESCE(NULLIF(category, ''), '(uncategorized)')                     AS category,
+  COALESCE(NULLIF(m.category, ''), '(uncategorized)')                   AS category,
   COUNT(*)::bigint                                                       AS count,
-  PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY salience)                  AS median_salience
-FROM tm_memories
-WHERE created_at IS NULL OR created_at >= NOW() - INTERVAL '30 days'
-GROUP BY 1
+  PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY m.salience)               AS median_salience,
+  COALESCE(r.retrievals_7d, 0)::bigint                                  AS retrievals_7d
+FROM tm_memories m
+LEFT JOIN retr_7d r
+  ON r.category = COALESCE(NULLIF(m.category, ''), '(uncategorized)')
+WHERE m.created_at IS NULL OR m.created_at >= NOW() - INTERVAL '30 days'
+GROUP BY 1, r.retrievals_7d
 WITH NO DATA;
 CREATE UNIQUE INDEX idx_mv_memory_by_category_30d_cat ON mv_memory_by_category_30d (category);
 

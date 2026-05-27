@@ -61,6 +61,18 @@ export type MemoryKpi = {
   retrieved_7d: number;
   db_size_bytes: number;
   growth_this_week: number;
+  // Delta/derived fields read by renderMemoryKpiStrip (render-memory.js ~174-192).
+  // added_this_week     — alias of growth_this_week (count of messages last 7d).
+  // gate_pass_rate_delta_pts — this-week minus prior-week gate pass rate, in
+  //                       percentage POINTS; NULL when gate signals absent
+  //                       (gate_decision/gate_eval are not emitted by stock
+  //                       TrueMemory, so this is typically NULL).
+  // growth_pct_7d       — fractional corpus growth vs 7d ago; NULL on cold corpus.
+  // corpus_size_mb      — db_size_bytes / 1048576 (unit conversion of an existing field).
+  added_this_week: number;
+  gate_pass_rate_delta_pts: number | null;
+  growth_pct_7d: number | null;
+  corpus_size_mb: number | null;
 };
 
 export type MemoryFeedRow = {
@@ -78,6 +90,10 @@ export type MemoryByCategoryRow = {
   category: string;
   count: number;
   median_salience: number | null;
+  // retrievals_7d: per-category memory_returned events in the last 7 days.
+  // Read by renderCategoryTable (render-memory.js ~441). memory_returned is a
+  // live signal so this populates with real data.
+  retrievals_7d: number;
 };
 
 type CalloutPayload = Record<string, unknown> | null;
@@ -146,24 +162,23 @@ export async function getMemoryKpi(client: PgRunner): Promise<MemoryKpi> {
   // is empty (not yet refreshed).
   try {
     const res = await client.query(
-      `SELECT total_memories, gate_pass_rate, retrieved_7d, db_size_bytes, growth_this_week
+      `SELECT total_memories, gate_pass_rate, gate_pass_rate_delta_pts,
+              retrieved_7d, db_size_bytes, growth_this_week, growth_pct_7d
          FROM mv_memory_kpi WHERE bucket = 1`,
     );
     const row = res.rows[0];
     if (row) {
-      return {
-        total_memories: intOrNull(row.total_memories) ?? 0,
-        gate_pass_rate: numOrNull(row.gate_pass_rate),
-        retrieved_7d: intOrNull(row.retrieved_7d) ?? 0,
-        db_size_bytes: intOrNull(row.db_size_bytes) ?? 0,
-        growth_this_week: intOrNull(row.growth_this_week) ?? 0,
-      };
+      return kpiRowToShape(row);
     }
   } catch {
     // matview missing — fall through to raw
   }
   const sql = `
-    WITH params AS (SELECT NOW() - INTERVAL '7 days' AS week_start)
+    WITH params AS (
+      SELECT
+        NOW() - INTERVAL '7 days'  AS week_start,
+        NOW() - INTERVAL '14 days' AS prior_week_start
+    )
     SELECT
       (SELECT COUNT(*) FROM tm_memories)                                          AS total_memories,
       (
@@ -173,6 +188,24 @@ export async function getMemoryKpi(client: PgRunner): Promise<MemoryKpi> {
         FROM tm_telemetry, params
         WHERE signal IN ('gate_decision','gate_eval') AND ts >= params.week_start
       )                                                                            AS gate_pass_rate,
+      -- this-week minus prior-week gate pass rate, in percentage POINTS.
+      -- NULL when either window is empty (gate signals not emitted by stock
+      -- TrueMemory) so the frontend hides the delta instead of showing 0.
+      (
+        SELECT CASE
+                 WHEN this_n = 0 OR prior_n = 0 THEN NULL
+                 ELSE (this_pass::numeric / this_n - prior_pass::numeric / prior_n) * 100.0
+               END
+        FROM (
+          SELECT
+            SUM(CASE WHEN ts >= p.week_start AND value_text = 'pass' THEN 1 ELSE 0 END)                       AS this_pass,
+            SUM(CASE WHEN ts >= p.week_start THEN 1 ELSE 0 END)                                               AS this_n,
+            SUM(CASE WHEN ts >= p.prior_week_start AND ts < p.week_start AND value_text = 'pass' THEN 1 ELSE 0 END) AS prior_pass,
+            SUM(CASE WHEN ts >= p.prior_week_start AND ts < p.week_start THEN 1 ELSE 0 END)                   AS prior_n
+          FROM tm_telemetry, params p
+          WHERE signal IN ('gate_decision','gate_eval') AND ts >= p.prior_week_start
+        ) g
+      )                                                                            AS gate_pass_rate_delta_pts,
       (
         SELECT COUNT(*)
         FROM tm_telemetry, params
@@ -185,16 +218,42 @@ export async function getMemoryKpi(client: PgRunner): Promise<MemoryKpi> {
       )                                                                            AS db_size_bytes,
       (
         SELECT COUNT(*) FROM tm_memories, params WHERE created_at >= params.week_start
-      )                                                                            AS growth_this_week
+      )                                                                            AS growth_this_week,
+      -- fractional corpus growth vs 7d ago; NULL on a cold corpus (baseline=0).
+      (
+        SELECT CASE WHEN baseline = 0 THEN NULL
+                    ELSE added::numeric / baseline
+               END
+        FROM (
+          SELECT
+            COUNT(*) FILTER (WHERE created_at >= p.week_start)                          AS added,
+            COUNT(*) FILTER (WHERE created_at IS NOT NULL AND created_at < p.week_start) AS baseline
+          FROM tm_memories, params p
+        ) gp
+      )                                                                            AS growth_pct_7d
   `;
   const res = await client.query(sql);
   const row = res.rows[0] ?? {};
+  return kpiRowToShape(row);
+}
+
+// Shared row->MemoryKpi mapper for both the matview fast-path and the raw
+// fallback (identical column set). Derives added_this_week (alias of
+// growth_this_week) and corpus_size_mb (db_size_bytes / 1 MiB) here so the
+// two code paths can never drift.
+function kpiRowToShape(row: Record<string, unknown>): MemoryKpi {
+  const growth = intOrNull(row.growth_this_week) ?? 0;
+  const dbBytes = intOrNull(row.db_size_bytes) ?? 0;
   return {
     total_memories: intOrNull(row.total_memories) ?? 0,
     gate_pass_rate: numOrNull(row.gate_pass_rate),
     retrieved_7d: intOrNull(row.retrieved_7d) ?? 0,
-    db_size_bytes: intOrNull(row.db_size_bytes) ?? 0,
-    growth_this_week: intOrNull(row.growth_this_week) ?? 0,
+    db_size_bytes: dbBytes,
+    growth_this_week: growth,
+    added_this_week: growth,
+    gate_pass_rate_delta_pts: numOrNull(row.gate_pass_rate_delta_pts),
+    growth_pct_7d: numOrNull(row.growth_pct_7d),
+    corpus_size_mb: dbBytes > 0 ? dbBytes / 1048576 : null,
   };
 }
 
@@ -276,7 +335,7 @@ export async function getMemoryByCategory(
   if (days === 30) {
     try {
       const res = await client.query(
-        `SELECT category, count, median_salience
+        `SELECT category, count, median_salience, retrievals_7d
            FROM mv_memory_by_category_30d
            ORDER BY count DESC`,
       );
@@ -285,6 +344,7 @@ export async function getMemoryByCategory(
           category: String(r.category),
           count: intOrNull(r.count) ?? 0,
           median_salience: numOrNull(r.median_salience),
+          retrievals_7d: intOrNull(r.retrievals_7d) ?? 0,
         }));
       }
     } catch {
@@ -299,6 +359,11 @@ export async function getMemoryByCategory(
   // COALESCE(m.category, tcat.derived) means once the backfill script runs,
   // the mirrored value takes priority; this JOIN only kicks in for new memories
   // that arrive before the next backfill cron.
+  // retr_7d is computed per memory_id (memory_returned events in last 7d) then
+  // rolled up alongside count/median in the GROUP BY — SUM of per-memory
+  // retrieval counts gives the per-category 7d retrieval total. This keeps the
+  // derived-category JOIN intact (one pass over tm_memories) instead of a
+  // second outer join on the COALESCE'd category string.
   const sql = `
     WITH latest_gate AS (
       SELECT DISTINCT ON (memory_id)
@@ -314,6 +379,14 @@ export async function getMemoryByCategory(
         AND memory_id IS NOT NULL
         AND raw_blob IS NOT NULL
       ORDER BY memory_id, ts DESC
+    ),
+    retr_7d AS (
+      SELECT memory_id, COUNT(*)::int AS n
+      FROM tm_telemetry
+      WHERE signal = 'memory_returned'
+        AND memory_id IS NOT NULL
+        AND ts >= NOW() - INTERVAL '7 days'
+      GROUP BY memory_id
     )
     SELECT
       COALESCE(
@@ -322,9 +395,11 @@ export async function getMemoryByCategory(
         '(uncategorized)'
       )                                                                      AS category,
       COUNT(*)::int                                                          AS count,
-      PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY m.salience)               AS median_salience
+      PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY m.salience)               AS median_salience,
+      COALESCE(SUM(r.n), 0)::int                                            AS retrievals_7d
     FROM tm_memories m
     LEFT JOIN latest_gate tcat ON tcat.memory_id = m.id
+    LEFT JOIN retr_7d r ON r.memory_id = m.id
     WHERE m.created_at IS NULL OR m.created_at >= NOW() - ($1::int * INTERVAL '1 day')
     GROUP BY 1
     ORDER BY count DESC
@@ -334,6 +409,7 @@ export async function getMemoryByCategory(
     category: String(r.category),
     count: intOrNull(r.count) ?? 0,
     median_salience: numOrNull(r.median_salience),
+    retrievals_7d: intOrNull(r.retrievals_7d) ?? 0,
   }));
 }
 
@@ -773,6 +849,15 @@ export type OpsRich = {
     reranker_cold_p95_ms: number | null;
     llm_call_avg_ms: number | null;
     llm_call_p95_ms: number | null;
+    // reranker_samples: recent per-event reranker durations (ms), oldest->newest,
+    //   capped at 200 points. Drives the scatter chart in renderOpsHealth
+    //   (render-memory.js ~939). Empty array when no reranker log events exist.
+    reranker_samples: number[];
+    // llm_histogram: latency buckets for llm_call/store/m.add() durations.
+    //   Drives the bar chart in renderOpsHealth (render-memory.js ~958). Empty
+    //   array when no such log events exist. bucket_ms is the lower edge of each
+    //   bucket in ms (frontend reads b.bucket_ms).
+    llm_histogram: Array<{ bucket_ms: number; count: number }>;
   };
   failures_7d: { parallel_search: number };
   log_stream: Array<{
@@ -810,16 +895,59 @@ export async function getMemoryOpsRich(client: PgRunner): Promise<OpsRich> {
     ORDER BY ts DESC
     LIMIT 50
   `;
-  const [kpi, timings, stream] = await Promise.all([
+  // reranker_samples — recent reranker durations as a scatter-ready array.
+  // Pull the 200 most-recent (DESC) then re-order oldest->newest in JS so the
+  // x-axis reads left=old, right=new (matches the chart's axis label).
+  const rerankerSamplesSql = `
+    SELECT duration_ms
+    FROM tm_log_events
+    WHERE event_type ILIKE '%reranker%'
+      AND duration_ms IS NOT NULL
+      AND ts >= NOW() - INTERVAL '7 days'
+    ORDER BY ts DESC
+    LIMIT 200
+  `;
+  // llm_histogram — latency buckets for llm_call/store/m.add() durations over
+  // 7d. 12 buckets across [0, 30000]ms via width_bucket; bucket_ms is the lower
+  // edge. Out-of-range (>30s) durations collect in the top bucket via LEAST.
+  const llmHistogramSql = `
+    WITH vals AS (
+      SELECT LEAST(duration_ms, 29999)::numeric AS d
+      FROM tm_log_events
+      WHERE event_type IN ('llm_call','store','m.add()')
+        AND duration_ms IS NOT NULL
+        AND ts >= NOW() - INTERVAL '7 days'
+    ),
+    bucketed AS (
+      SELECT width_bucket(d, 0, 30000, 12) AS bin
+      FROM vals
+    )
+    SELECT
+      bin,
+      ROUND((bin - 1) * (30000.0 / 12.0))::int AS bucket_ms,
+      COUNT(*)::int                            AS count
+    FROM bucketed
+    WHERE bin BETWEEN 1 AND 12
+    GROUP BY bin
+    ORDER BY bin
+  `;
+  const [kpi, timings, stream, rerankerSamples, llmHistogram] = await Promise.all([
     client.query(kpiSql),
     client.query(timingsSql),
     client.query(streamSql),
+    client.query(rerankerSamplesSql),
+    client.query(llmHistogramSql),
   ]);
   const k = kpi.rows[0] ?? {};
   const t = timings.rows[0] ?? {};
   return {
     kpis: {
       drainer_ticks_7d: num(k.drainer_ticks_7d),
+      // drainer_items: count of items drained per tick. No source signal yet —
+      // the mirror's parseLogLine extracts only duration_ms + memory_id from
+      // _backlog_drainer lines, never an item-count payload, and tm_log_events
+      // has no column for it. Left null rather than fabricated. Wire this once
+      // TrueMemory emits a drained-item count in the drainer log message.
       drainer_items: null,
       forget_events_7d: num(k.forget_events_7d),
       configure_reembeds_7d: num(k.configure_reembeds_7d),
@@ -829,6 +957,14 @@ export async function getMemoryOpsRich(client: PgRunner): Promise<OpsRich> {
       reranker_cold_p95_ms: numOrNull(t.reranker_p95),
       llm_call_avg_ms: numOrNull(t.llm_avg),
       llm_call_p95_ms: numOrNull(t.llm_p95),
+      reranker_samples: rerankerSamples.rows
+        .map((r) => numOrNull(r.duration_ms))
+        .filter((v): v is number => v !== null)
+        .reverse(),
+      llm_histogram: llmHistogram.rows.map((r) => ({
+        bucket_ms: intOrNull(r.bucket_ms) ?? 0,
+        count: intOrNull(r.count) ?? 0,
+      })),
     },
     failures_7d: {
       parallel_search: num(k.parallel_search_fails_7d),
