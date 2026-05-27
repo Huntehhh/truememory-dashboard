@@ -354,7 +354,9 @@ async function renderMemoryFeed(el, limit, category) {
     const salPct = Math.round(sal * 100);
     const content = truncate(r.content || '', 160);
     const sender = r.sender || '—';
-    const retrievals = r.retrievals != null ? r.retrievals : 0;
+    // getMemoryFeed() returns retrieval_count (mirror-derived); the older
+    // r.retrievals key was never sent, so this column always rendered 0.
+    const retrievals = r.retrieval_count != null ? r.retrieval_count : (r.retrievals != null ? r.retrievals : 0);
     return `
       <tr>
         <td class="cell-id" data-copy="${id}">${id}</td>
