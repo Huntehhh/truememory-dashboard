@@ -869,11 +869,31 @@ export type OpsRich = {
 };
 
 export async function getMemoryOpsRich(client: PgRunner): Promise<OpsRich> {
+  // configure_reembeds_7d — count only legitimate re-embed events, not every
+  // `configure` log line. TrueMemory wraps re-embeds inside the
+  // `truememory_configure` lifecycle, which emits multiple event_type='configure'
+  // rows per call: ENTER, "offline-mode restored", "going-online", and EXIT.
+  // Only the EXIT row whose message contains rebuild_action='delta_or_full'
+  // represents a real re-embed kickoff (see truememory/mcp_server.py:854-870 —
+  // 'config_only' is a same-embedding tier swap, 'None' is a no-op configure).
+  // Forward-compat: also count any future discrete reembed_* / tier_switch_*
+  // event_types if TrueMemory ever emits them (none today; probe confirmed).
   const kpiSql = `
     SELECT
       COUNT(*) FILTER (WHERE event_type ILIKE '%drainer%' AND ts >= NOW() - INTERVAL '7 days') AS drainer_ticks_7d,
       COUNT(*) FILTER (WHERE event_type ILIKE '%forget%' AND ts >= NOW() - INTERVAL '7 days') AS forget_events_7d,
-      COUNT(*) FILTER (WHERE (event_type ILIKE '%reembed%' OR event_type ILIKE '%configure%') AND ts >= NOW() - INTERVAL '7 days') AS configure_reembeds_7d,
+      COUNT(*) FILTER (
+        WHERE ts >= NOW() - INTERVAL '7 days'
+          AND (
+            event_type ILIKE 'reembed%'
+            OR event_type ILIKE 'tier_switch%'
+            OR (
+              event_type = 'configure'
+              AND message LIKE 'EXIT%'
+              AND message LIKE '%rebuild_action=''delta_or_full''%'
+            )
+          )
+      ) AS configure_reembeds_7d,
       COUNT(*) FILTER (WHERE event_type ILIKE '%parallel_search%' AND level = 'error' AND ts >= NOW() - INTERVAL '7 days') AS parallel_search_fails_7d
     FROM tm_log_events
   `;
