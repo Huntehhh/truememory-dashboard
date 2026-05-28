@@ -171,14 +171,12 @@ async function renderMemoryKpiStrip(el) {
     {
       label: 'Total memories',
       value: fmtNum(data.total_memories),
-      delta: data.added_this_week != null ? '+' + fmtNum(data.added_this_week) + ' this week' : '',
+      delta: (data.growth_this_week != null && data.growth_this_week > 0) ? '+' + fmtNum(data.growth_this_week) + ' this week' : '',
     },
     {
       label: 'Gate pass rate',
       value: data.gate_pass_rate != null ? (data.gate_pass_rate * 100).toFixed(1) + '%' : '—',
-      delta: data.gate_pass_rate_delta_pts != null
-        ? (data.gate_pass_rate_delta_pts >= 0 ? '+' : '') + data.gate_pass_rate_delta_pts.toFixed(0) + 'pts vs prior'
-        : '',
+      delta: '',
     },
     {
       label: 'Retrieved (7d)',
@@ -187,8 +185,8 @@ async function renderMemoryKpiStrip(el) {
     },
     {
       label: 'Growth (7d)',
-      value: data.growth_pct_7d != null ? (data.growth_pct_7d >= 0 ? '+' : '') + (data.growth_pct_7d * 100).toFixed(1) + '%' : '—',
-      delta: data.corpus_size_mb != null ? data.corpus_size_mb.toFixed(1) + ' MB on disk' : '',
+      value: data.growth_this_week != null ? '+' + fmtNum(data.growth_this_week) : '—',
+      delta: data.db_size_bytes != null ? (data.db_size_bytes / (1024 * 1024)).toFixed(1) + ' MB on disk' : '',
     },
   ];
   el.innerHTML = cells.map(c => `
@@ -235,7 +233,7 @@ async function renderMemoryActivityHeatmap(el) {
     x: xLabels,
     y: yLabels,
     colorscale: [
-      [0,   PALETTE.paperMid],
+      [0,   '#ebe0c8'],
       [0.25,'#e8d4b8'],
       [0.55,'#c8a878'],
       [0.80, PALETTE.teal],
@@ -246,8 +244,8 @@ async function renderMemoryActivityHeatmap(el) {
     xgap: 2, ygap: 2,
   }], baseLayout({
     height: 220,
-    xaxis: baseAxis({ side: 'top', tickfont: { family: '"DM Mono", monospace', size: 9, color: PALETTE.inkMid } }),
-    yaxis: baseAxis({ tickfont: { family: '"DM Mono", monospace', size: 9, color: PALETTE.inkMid } }),
+    xaxis: baseAxis({ type: 'category', side: 'top', tickfont: { family: '"DM Mono", monospace', size: 9, color: PALETTE.inkMid } }),
+    yaxis: baseAxis({ type: 'category', tickfont: { family: '"DM Mono", monospace', size: 9, color: PALETTE.inkMid } }),
     margin: { l: 40, r: 20, t: 30, b: 20 },
   }), plotlyConfig);
 }
@@ -352,7 +350,7 @@ async function renderMemoryFeed(el, limit, category) {
     const cat = (r.category || 'unknown').toLowerCase();
     const sal = Number(r.salience) || 0;
     const salPct = Math.round(sal * 100);
-    const content = truncate(r.content || '', 160);
+    const content = truncate(r.content_preview || r.content || '', 160);
     const sender = r.sender || '—';
     // getMemoryFeed() returns retrieval_count (mirror-derived); the older
     // r.retrievals key was never sent, so this column always rendered 0.
@@ -938,37 +936,20 @@ async function renderOpsHealth(el) {
 
   // Reranker chart
   const rrChart = document.getElementById('ops-reranker-chart');
-  if (timings.reranker_samples && timings.reranker_samples.length) {
-    Plotly.newPlot(rrChart, [{
-      type: 'scatter',
-      mode: 'markers',
-      x: timings.reranker_samples.map((_, i) => i),
-      y: timings.reranker_samples.map(v => Number(v) || 0),
-      marker: { color: PALETTE.slate, size: 7, opacity: 0.78 },
-      hovertemplate: 'session %{x}<br>%{y} ms<extra></extra>',
-    }], baseLayout({
-      height: 240,
-      xaxis: baseAxis({ title: { text: 'session (oldest → newest)', font: { size: 9, color: PALETTE.inkMid } } }),
-      yaxis: baseAxis({ title: { text: 'load (ms)', font: { size: 9, color: PALETTE.inkMid } } }),
-    }), plotlyConfig);
+  if (timings.reranker_cold_avg_ms != null) {
+    const avgS = (timings.reranker_cold_avg_ms / 1000).toFixed(1);
+    const p95S = timings.reranker_cold_p95_ms != null ? (timings.reranker_cold_p95_ms / 1000).toFixed(1) : '—';
+    rrChart.innerHTML = '<div class="timing-summary" style="padding:18px 12px;font-family:\'DM Mono\',monospace;font-size:12px;color:' + PALETTE.ink + ';line-height:1.6"><div>avg: <strong>' + avgS + 's</strong> &middot; p95: <strong>' + p95S + 's</strong></div><div style="margin-top:8px;color:' + PALETTE.inkDim + ';font-size:11px"><em>(samples histogram pending &mdash; telemetry signal &#39;reranker&#39; not yet populated)</em></div></div>';
   } else {
     showEmpty(rrChart, 'no reranker timings yet');
   }
 
   // LLM chart — histogram of latency
   const llmChart = document.getElementById('ops-llm-chart');
-  if (timings.llm_histogram && timings.llm_histogram.length) {
-    Plotly.newPlot(llmChart, [{
-      type: 'bar',
-      x: timings.llm_histogram.map(b => b.bucket_ms != null ? b.bucket_ms : b.label),
-      y: timings.llm_histogram.map(b => Number(b.count) || 0),
-      marker: { color: PALETTE.auber },
-      hovertemplate: '%{x}ms bucket<br>%{y} calls<extra></extra>',
-    }], baseLayout({
-      height: 240,
-      xaxis: baseAxis({ title: { text: 'latency (ms)', font: { size: 9, color: PALETTE.inkMid } } }),
-      yaxis: baseAxis({ title: { text: 'calls', font: { size: 9, color: PALETTE.inkMid } } }),
-    }), plotlyConfig);
+  if (timings.llm_call_avg_ms != null) {
+    const avgS = (timings.llm_call_avg_ms / 1000).toFixed(1);
+    const p95S = timings.llm_call_p95_ms != null ? (timings.llm_call_p95_ms / 1000).toFixed(1) : '—';
+    llmChart.innerHTML = '<div class="timing-summary" style="padding:18px 12px;font-family:\'DM Mono\',monospace;font-size:12px;color:' + PALETTE.ink + ';line-height:1.6"><div>avg: <strong>' + avgS + 's</strong> &middot; p95: <strong>' + p95S + 's</strong></div><div style="margin-top:8px;color:' + PALETTE.inkDim + ';font-size:11px"><em>(samples histogram pending &mdash; telemetry signal &#39;llm&#39; not yet populated)</em></div></div>';
   } else {
     showEmpty(llmChart, 'no llm timings yet');
   }
