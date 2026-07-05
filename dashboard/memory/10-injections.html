@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TrueMemory · Memory Feed</title>
+<title>TrueMemory · Injection Feed</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&family=Source+Sans+3:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -12,12 +12,22 @@
 <link rel="stylesheet" href="_assets/styles-usage.css">
 <link rel="stylesheet" href="_assets/styles-memory.css">
 <script src="https://cdn.plot.ly/plotly-2.35.0.min.js" charset="utf-8"></script>
+<style>
+  .hook-badge { display:inline-block; padding:2px 8px; border-radius:3px; font-family:'DM Mono',monospace; font-size:10px; font-weight:600; letter-spacing:0.05em; background:#ebe2cf; color:#2a2a2a; }
+  .hook-badge.hook-session-start { background:#1d6e6e; color:#faf6f0; }
+  .hook-badge.hook-user-prompt-submit { background:#b85c2a; color:#faf6f0; }
+  .hook-badge.hook-stop { background:#4a6e7e; color:#faf6f0; }
+  .hook-badge.hook-compact { background:#c89211; color:#2a2a2a; }
+  .injection-preview .expand-hint { color:#888; font-family:'DM Mono',monospace; font-size:10px; }
+  .injection-preview.expandable:hover { background:rgba(29,110,110,0.05); }
+  .injection-row .cell-ts { font-family:'DM Mono',monospace; font-size:11px; white-space:nowrap; }
+</style>
 </head>
 <body>
 <div class="app">
   <header class="brand"><span class="logo">True<em>Memory</em></span><span class="ver">MEMORY</span></header>
   <nav class="topbar">
-    <div class="crumb"><a href="00-index.html">Memory</a> <span class="sep">/</span> Feed</div>
+    <div class="crumb"><a href="00-index.html">Memory</a> <span class="sep">/</span> Injections</div>
     <div class="pill-toggle">
       <a class="active" href="00-index.html">MEMORY</a>
     </div>
@@ -27,13 +37,13 @@
     <div class="sidebar-section">Story</div>
     <a class="nav-item" href="00-index.html"><span>Index</span><span class="num">00</span></a>
     <a class="nav-item" href="01-overview.html"><span>Overview</span><span class="num">01</span></a>
-    <a class="nav-item active" href="02-feed.html"><span>Memory Feed</span><span class="num">02</span></a>
+    <a class="nav-item" href="02-feed.html"><span>Memory Feed</span><span class="num">02</span></a>
     <div class="sidebar-section">Build</div>
     <a class="nav-item" href="03-by-category.html"><span>By Category</span><span class="num">03</span></a>
     <a class="nav-item" href="04-aging.html"><span>Aging</span><span class="num">04</span></a>
     <a class="nav-item" href="05-themes.html"><span>Themes (UMAP)</span><span class="num">05</span></a>
     <div class="sidebar-section">Recall</div>
-    <a class="nav-item" href="10-injections.html"><span>Injections</span><span class="num">10</span></a>
+    <a class="nav-item active" href="10-injections.html"><span>Injections</span><span class="num">10</span></a>
     <a class="nav-item" href="11-inspector.html"><span>Inspector</span><span class="num">11</span></a>
     <div class="sidebar-section">Operate</div>
     <a class="nav-item" href="06-operations.html"><span>Operations</span><span class="num">06</span></a>
@@ -46,20 +56,21 @@
   <main class="main">
     <div class="view-head">
       <div>
-        <h1 class="view-title">02 · Memory <em>Feed</em></h1>
-        <p class="view-dek">All memories, newest first. Each row is one passed-the-gate entry. Click any id to copy.</p>
+        <h1 class="view-title">10 · Injection <em>Feed</em></h1>
+        <p class="view-dek">Injection Feed — what TrueMemory put into Claude's context</p>
       </div>
-      <div class="view-meta">live · 200 most recent</div>
+      <div class="view-meta">live · 50 most recent</div>
     </div>
+    <p class="view-explainer" style="max-width:700px;margin:8px 0 24px;color:var(--ink-muted,#5a5a5a);font-family:'Newsreader',serif;font-style:italic;font-size:14px;line-height:1.55">
+      Every hook fire that injected memories into a session: which hook, which session, how many memories, and a preview of what Claude saw.
+    </p>
 
     <section class="chart-card">
       <div class="chart-card-head">
-        <h2 class="chart-card-title">memories.db <em>stream</em></h2>
-        <span class="chart-card-meta">scrollable · click id to copy</span>
+        <h2 class="chart-card-title">injections.log <em>stream</em></h2>
+        <span class="chart-card-meta">scrollable · click preview to expand</span>
       </div>
-      <!-- Category chip bar: renders chips from /api/memory/feed-categories -->
-      <div id="chip-bar-mount"><div class="category-chip-bar" id="chip-bar-inner"></div></div>
-      <div class="feed-scroll" id="feed-mount"></div>
+      <div id="injections-mount" class="feed-scroll"></div>
     </section>
   </main>
 </div>
@@ -67,32 +78,10 @@
 <script src="_assets/render-memory.js"></script>
 <script>
 (async function init() {
-  // Determine initial category from URL (for page-load pre-selection)
-  const urlParams = new URLSearchParams(window.location.search);
-  let activeCategory = urlParams.get('category') || null;
-
-  const feedMount = document.getElementById('feed-mount');
-  const chipMount = document.getElementById('chip-bar-mount');
-
-  const loadFeed = (cat) => GTBM.renderMemoryFeed(feedMount, 200, cat);
-
-  // Render chip bar; chip clicks call loadFeed with the selected category
-  GTBM.renderCategoryChips(chipMount, (cat) => {
-    activeCategory = cat;
-    loadFeed(cat);
-  });
-
-  // Refresh button reloads both chips and feed
-  const refresh = () => {
-    GTBM.renderCategoryChips(chipMount, (cat) => {
-      activeCategory = cat;
-      loadFeed(cat);
-    });
-    return loadFeed(activeCategory);
-  };
-
+  const mount = document.getElementById('injections-mount');
+  const refresh = () => GTBM.renderInjectionsFeed(mount, 50);
   GTBM.attachRefresh(document.getElementById('refresh-btn'), refresh);
-  await loadFeed(activeCategory);
+  await refresh();
 })();
 </script>
 </body>

@@ -28,6 +28,8 @@ import {
   getMemoryOpenLoops,
   getMemoryDecayPanels,
   getMemoryActivity,
+  getMemoryInjections,
+  getMemoryInspect,
 } from './memory-queries.js';
 import { parseClampInt, noStore, fail } from './route-helpers.js';
 
@@ -197,6 +199,44 @@ export function createMemoryRouter(client: PgRunner): Router {
       const data = await getMemoryActivity(client, days);
       noStore(res);
       res.json({ window_days: days, data });
+    } catch (err) {
+      fail(res, err);
+    }
+  });
+
+  // Injection feed — recent memory-inject / hook events mirrored from
+  // ~/.truememory/injections.log into tm_injections by the mirror.
+  router.get('/injections', async (req: Request, res: Response) => {
+    try {
+      const limit = parseClampInt(req.query.limit, 50, 1, 500);
+      const data = await getMemoryInjections(client, limit);
+      noStore(res);
+      res.json({ limit, data });
+    } catch (err) {
+      fail(res, err);
+    }
+  });
+
+  // Inspect a single memory — returns memory + connections (entities, causal
+  // edges, fact timeline, landmarks, cluster) + top-10 nearest neighbors.
+  // ?vector=1 additionally returns the raw L2-normalized embedding.
+  router.get('/inspect/:id', async (req: Request, res: Response) => {
+    try {
+      const idRawUnknown = req.params.id;
+      const idRaw = typeof idRawUnknown === 'string' ? idRawUnknown : '';
+      const id = Number.parseInt(idRaw, 10);
+      if (!Number.isFinite(id) || id <= 0) {
+        res.status(400).json({ error: 'invalid id' });
+        return;
+      }
+      const includeVector = req.query.vector === '1';
+      const data = await getMemoryInspect(client, id, { includeVector });
+      if (!data || !data.memory) {
+        res.status(404).json({ error: 'memory not found' });
+        return;
+      }
+      noStore(res);
+      res.json({ data });
     } catch (err) {
       fail(res, err);
     }

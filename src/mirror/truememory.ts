@@ -36,6 +36,7 @@ import { Client } from 'pg';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
+import crypto from 'node:crypto';
 
 // ---------------------------------------------------------------------------
 // Config
@@ -44,6 +45,7 @@ import os from 'node:os';
 const TM_HOME = path.join(os.homedir(), '.truememory');
 const MEMORIES_DB_PATH = process.env.TRUEMEMORY_DB_PATH ?? path.join(TM_HOME, 'memories.db');
 const DEBUG_LOG_PATH = process.env.TRUEMEMORY_LOG_PATH ?? path.join(TM_HOME, 'logs', 'mcp-debug.log');
+const INJECTIONS_LOG_PATH = process.env.TRUEMEMORY_INJECTIONS_LOG_PATH ?? path.join(TM_HOME, 'injections.log');
 
 const PG_HOST = process.env.CLAUDE_USAGE_PG_HOST ?? '127.0.0.1';
 const PG_PORT = Number.parseInt(process.env.CLAUDE_USAGE_PG_PORT ?? '5433', 10);
@@ -536,10 +538,192 @@ async function syncDebugLog(pg: Client): Promise<number> {
 }
 
 // ---------------------------------------------------------------------------
+// injections.log sync (JSONL)
+// ---------------------------------------------------------------------------
+//
+// Format: one JSON object per line, emitted by TrueMemory hooks
+// (session_start, user_prompt_submit, stop, compact, smoke_test). Required
+// fields: hook (non-empty string) + timestamp (ISO-8601). Everything else
+// (session_id, char_count, memory_count, query, preview, full_content,
+// action, extra) is optional — older records lack full_content entirely.
+//
+// Watermark: byte offset via tm_mirror_state.source_table='injections.log'.
+// Rotation detection: shrink → reset to 0 (mirrors syncDebugLog).
+// Dedup: sha1(raw_line) UNIQUE constraint on tm_injections.raw_line_hash;
+// re-tails after rotation replay cleanly.
+
+type InjectionEvent = {
+  ts: string;
+  hook: string;
+  session_id: string | null;
+  action: string | null;
+  memory_count: number | null;
+  char_count: number | null;
+  query: string | null;
+  preview: string | null;
+  full_content: string | null;
+  extra: string | null;  // JSON string (or null) — cast to ::jsonb at insert
+  raw_line_hash: string;
+};
+
+function coerceIntOrNull(v: unknown): number | null {
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'number' && Number.isFinite(v)) return Math.trunc(v);
+  if (typeof v === 'string') {
+    const n = Number.parseInt(v, 10);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+function coerceStrOrNull(v: unknown): string | null {
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'string') return v;
+  return null;
+}
+
+function parseInjectionLine(line: string): InjectionEvent | null {
+  const trimmed = line.replace(/\r$/, '').trim();
+  if (!trimmed) return null;
+  let obj: Record<string, unknown>;
+  try {
+    const parsed: unknown = JSON.parse(trimmed);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    obj = parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+
+  const hook = obj['hook'];
+  if (typeof hook !== 'string' || hook.length === 0) return null;
+
+  const tsRaw = obj['timestamp'];
+  if (typeof tsRaw !== 'string' || tsRaw.length === 0) return null;
+  const tsMs = Date.parse(tsRaw);
+  if (!Number.isFinite(tsMs)) return null;
+  const ts = new Date(tsMs).toISOString();
+
+  // extra: pass through as JSON string for the $N::jsonb cast at insert time.
+  // If missing or unserializable, insert null. NOTE: we serialize even valid
+  // objects (rather than reusing the raw substring) so we get canonical output
+  // and never leak malformed nested JSON into the jsonb column.
+  let extra: string | null = null;
+  const rawExtra = obj['extra'];
+  if (rawExtra !== null && rawExtra !== undefined) {
+    try {
+      extra = JSON.stringify(rawExtra);
+    } catch {
+      extra = null;
+    }
+  }
+
+  const rawLineHash = crypto.createHash('sha1').update(trimmed).digest('hex');
+
+  return {
+    ts,
+    hook,
+    session_id: coerceStrOrNull(obj['session_id']),
+    action: coerceStrOrNull(obj['action']),
+    memory_count: coerceIntOrNull(obj['memory_count']),
+    char_count: coerceIntOrNull(obj['char_count']),
+    query: coerceStrOrNull(obj['query']),
+    preview: coerceStrOrNull(obj['preview']),
+    full_content: coerceStrOrNull(obj['full_content']),
+    extra,
+    raw_line_hash: rawLineHash,
+  };
+}
+
+async function bulkInsertInjections(pg: Client, rows: InjectionEvent[]): Promise<number> {
+  if (rows.length === 0) return 0;
+  const cols = [
+    'ts', 'hook', 'session_id', 'action', 'memory_count', 'char_count',
+    'query', 'preview', 'full_content', 'extra', 'raw_line_hash',
+  ];
+  // 'extra' is JSONB — cast the placeholder explicitly. All other cols are
+  // plain scalars (see the parallel treatment of raw_blob in
+  // bulkUpsertTelemetry / mv_memory_kpi build).
+  const EXTRA_IDX = cols.indexOf('extra'); // 9
+
+  const placeholders: string[] = [];
+  const values: unknown[] = [];
+  let p = 1;
+  for (const r of rows) {
+    const placeholderRow = cols
+      .map((_, idx) => (idx === EXTRA_IDX ? `$${p++}::jsonb` : `$${p++}`))
+      .join(', ');
+    placeholders.push(`(${placeholderRow})`);
+    values.push(
+      r.ts, r.hook, r.session_id, r.action, r.memory_count, r.char_count,
+      r.query, r.preview, r.full_content, r.extra, r.raw_line_hash,
+    );
+  }
+
+  const sql = `
+    INSERT INTO tm_injections (${cols.join(', ')})
+    VALUES ${placeholders.join(', ')}
+    ON CONFLICT (raw_line_hash) DO NOTHING
+  `;
+  const result = await pg.query(sql, values);
+  return result.rowCount ?? 0;
+}
+
+async function syncInjectionsLog(pg: Client): Promise<number> {
+  let exists = false;
+  try {
+    await fs.access(INJECTIONS_LOG_PATH);
+    exists = true;
+  } catch {
+    exists = false;
+  }
+  if (!exists) return 0;
+
+  const stat = await fs.stat(INJECTIONS_LOG_PATH);
+  let offset = await getWatermark(pg, 'injections.log');
+  // Rotation detection — file shrank since last sync.
+  if (stat.size < offset) offset = 0;
+  // Tail-only safeguard: if we've never synced and the log is enormous,
+  // start near the tail to avoid a cold read of the entire history.
+  if (offset === 0 && stat.size > LOG_TAIL_MAX_BYTES) {
+    offset = stat.size - LOG_TAIL_MAX_BYTES;
+  }
+  if (stat.size === offset) return 0;
+
+  const fh = await fs.open(INJECTIONS_LOG_PATH, 'r');
+  try {
+    const length = stat.size - offset;
+    const buf = Buffer.alloc(length);
+    await fh.read(buf, 0, length, offset);
+    const text = buf.toString('utf8');
+    const lastNewline = text.lastIndexOf('\n');
+    if (lastNewline === -1) return 0;
+    const consumed = text.slice(0, lastNewline + 1);
+    const lines = consumed.split('\n').filter((l) => l.trim().length > 0);
+    const events: InjectionEvent[] = [];
+    for (const line of lines) {
+      const e = parseInjectionLine(line);
+      if (e) events.push(e);
+    }
+    // Insert in chunks to keep statement size sane. full_content can be
+    // several KB per row so keep the chunk smaller than the debug-log chunk.
+    let added = 0;
+    const CHUNK = 500;
+    for (let i = 0; i < events.length; i += CHUNK) {
+      added += await bulkInsertInjections(pg, events.slice(i, i + CHUNK));
+    }
+    const newOffset = offset + Buffer.byteLength(consumed, 'utf8');
+    await setWatermark(pg, 'injections.log', newOffset, events.length);
+    return added;
+  } finally {
+    await fh.close();
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Tick orchestrator
 // ---------------------------------------------------------------------------
 
-type TickResult = { messages: number; telemetry: number; log: number; ok: boolean };
+type TickResult = { messages: number; telemetry: number; log: number; injections: number; ok: boolean };
 
 async function openSourceDb(): Promise<Database.Database> {
   // Read-only URI form is the only safe way to touch memories.db while the
@@ -564,10 +748,17 @@ async function tick(pg: Client): Promise<TickResult> {
       await recomputeDerivedColumns(pg, Array.from(telResult.touchedIds));
     }
     const logAdded = await syncDebugLog(pg);
-    return { messages: messagesAdded, telemetry: telResult.added, log: logAdded, ok: true };
+    const injectionsAdded = await syncInjectionsLog(pg);
+    return {
+      messages: messagesAdded,
+      telemetry: telResult.added,
+      log: logAdded,
+      injections: injectionsAdded,
+      ok: true,
+    };
   } catch (err) {
     console.error('[tm-mirror] tick failed:', err instanceof Error ? err.message : err);
-    return { messages: 0, telemetry: 0, log: 0, ok: false };
+    return { messages: 0, telemetry: 0, log: 0, injections: 0, ok: false };
   } finally {
     if (db) db.close();
   }
@@ -601,6 +792,7 @@ async function main(): Promise<void> {
   console.log(`[tm-mirror] connected to postgres ${PG_HOST}:${PG_PORT}/${PG_DATABASE}`);
   console.log(`[tm-mirror] source db: ${MEMORIES_DB_PATH}`);
   console.log(`[tm-mirror] source log: ${DEBUG_LOG_PATH}`);
+  console.log(`[tm-mirror] source injections log: ${INJECTIONS_LOG_PATH}`);
 
   let running = true;
   const shutdown = async (sig: string): Promise<void> => {
@@ -619,7 +811,7 @@ async function main(): Promise<void> {
   if (RUN_ONCE) {
     const r = await tick(pg);
     console.log(
-      `[tm-mirror] one-shot: +${r.messages} messages, +${r.telemetry} telemetry, +${r.log} log events`,
+      `[tm-mirror] one-shot: +${r.messages} messages, +${r.telemetry} telemetry, +${r.log} log events, +${r.injections} injections`,
     );
     await pg.end();
     return;
@@ -628,9 +820,9 @@ async function main(): Promise<void> {
   while (running) {
     try {
       const r = await tick(pg);
-      if (r.messages > 0 || r.telemetry > 0 || r.log > 0) {
+      if (r.messages > 0 || r.telemetry > 0 || r.log > 0 || r.injections > 0) {
         console.log(
-          `[tm-mirror] +${r.messages} messages, +${r.telemetry} telemetry, +${r.log} log events`,
+          `[tm-mirror] +${r.messages} messages, +${r.telemetry} telemetry, +${r.log} log events, +${r.injections} injections`,
         );
       }
     } catch (err) {

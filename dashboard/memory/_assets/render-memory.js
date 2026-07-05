@@ -357,7 +357,7 @@ async function renderMemoryFeed(el, limit, category) {
     const retrievals = r.retrieval_count != null ? r.retrieval_count : (r.retrievals != null ? r.retrievals : 0);
     return `
       <tr>
-        <td class="cell-id" data-copy="${id}">${id}</td>
+        <td class="cell-id"><a href="11-inspector.html?id=${id}" title="inspect memory ${id}">${id}</a></td>
         <td class="cell-ts">${ts}</td>
         <td><span class="cell-cat ${cat}">${cat}</span></td>
         <td class="cell-sender">${sender}</td>
@@ -1041,6 +1041,293 @@ async function renderOpenLoops(el) {
     </div>`).join('');
 }
 
+/* ---------- injections feed (10) ---------- */
+
+async function renderInjectionsFeed(el, limit) {
+  showLoading(el);
+  const rows = await fetchJson('/api/memory/injections?limit=' + (limit || 50));
+  if (!rows) return showError(el, 'injections endpoint unreachable');
+  if (!Array.isArray(rows) || rows.length === 0) return showEmpty(el, 'no injections logged yet');
+
+  const HOOK_BADGES = {
+    session_start: 'SS',
+    user_prompt_submit: 'UPS',
+    stop: 'STOP',
+    compact: 'CPT',
+  };
+
+  const hookBadge = (hook) => {
+    const key = (hook || '').toLowerCase();
+    if (HOOK_BADGES[key]) return HOOK_BADGES[key];
+    // Fallback: first letter of each word/segment, upper.
+    return String(hook || '?').split(/[_-]/).map(s => s[0] || '').join('').toUpperCase().slice(0, 4) || '?';
+  };
+
+  const tbody = rows.map((r, idx) => {
+    const rowId = 'inj-row-' + idx;
+    const ts = fmtTs(r.ts);
+    const age = fmtAge(r.ts);
+    const badge = hookBadge(r.hook);
+    const hookClass = 'hook-' + (r.hook || 'other').toLowerCase().replace(/[^a-z0-9]/g, '-');
+    const sess = (r.session_id || '—');
+    const sessShort = truncate(sess, 12);
+    const action = (r.action || '—');
+    const memCount = r.memory_count != null ? r.memory_count : '—';
+    const preview = truncate(r.preview || '(no preview)', 200);
+    const hasFull = r.full_content && r.full_content !== r.preview;
+    return `
+      <tr class="injection-row" data-row-id="${rowId}">
+        <td class="cell-ts" title="${escapeHtml(r.ts || '')}">${age} <span style="color:var(--ink-dim,#888);font-size:10px">· ${ts}</span></td>
+        <td><span class="hook-badge ${hookClass}" title="${escapeHtml(r.hook || '')}">${badge}</span></td>
+        <td class="cell-sender" style="font-family:'DM Mono',monospace" title="${escapeHtml(sess)}">${escapeHtml(sessShort)}</td>
+        <td class="cell-sender">${escapeHtml(action)}</td>
+        <td class="cell-sender" style="text-align:right">${memCount}</td>
+        <td class="cell-content injection-preview ${hasFull ? 'expandable' : ''}" data-expanded="false">
+          <div class="preview-line">${escapeHtml(preview)}${hasFull ? ' <span class="expand-hint">[+]</span>' : ''}</div>
+          ${hasFull ? `<div class="preview-full" style="display:none;white-space:pre-wrap;padding-top:8px;color:var(--ink-mid,#5a5a5a)">${escapeHtml(r.full_content)}</div>` : ''}
+        </td>
+      </tr>`;
+  }).join('');
+
+  el.innerHTML = `
+    <table class="memory-feed-table">
+      <thead><tr>
+        <th>when</th><th>hook</th><th>session</th><th>action</th><th style="text-align:right">n</th><th>preview</th>
+      </tr></thead>
+      <tbody>${tbody}</tbody>
+    </table>`;
+
+  el.querySelectorAll('.injection-preview.expandable').forEach(td => {
+    td.style.cursor = 'pointer';
+    td.addEventListener('click', () => {
+      const isOpen = td.dataset.expanded === 'true';
+      const full = td.querySelector('.preview-full');
+      const hint = td.querySelector('.expand-hint');
+      if (full) full.style.display = isOpen ? 'none' : 'block';
+      if (hint) hint.textContent = isOpen ? '[+]' : '[−]';
+      td.dataset.expanded = isOpen ? 'false' : 'true';
+    });
+  });
+}
+
+/* ---------- memory inspector (11) ---------- */
+
+async function renderMemoryInspector(el, id) {
+  if (!id || !/^\d+$/.test(String(id))) {
+    el.innerHTML = `
+      <div class="empty-state" style="padding:40px 20px;text-align:center">
+        <span class="empty-icon">∅</span>
+        <span class="empty-msg">No memory selected. Add <code>?id=&lt;memory-id&gt;</code> to the URL, or click any id in the <a href="02-feed.html">Feed</a> or <a href="10-injections.html">Injections</a> page.</span>
+      </div>`;
+    return;
+  }
+  showLoading(el);
+  let raw;
+  try {
+    raw = await fetch('/api/memory/inspect/' + encodeURIComponent(id), { cache: 'no-store', mode: 'cors' });
+  } catch (err) {
+    return showError(el, 'inspect endpoint unreachable');
+  }
+  if (!raw.ok) {
+    if (raw.status === 404) {
+      return showEmpty(el, 'memory id ' + id + ' not found in tm_memories');
+    }
+    return showError(el, 'inspect endpoint failed (HTTP ' + raw.status + ')');
+  }
+  const body = await raw.json();
+  const data = body && body.data;
+  if (!data || !data.memory) return showError(el, 'inspect response malformed');
+
+  const m = data.memory;
+  const conn = data.connections || {};
+  const neighbors = data.neighbors || [];
+
+  const catLower = (m.category || 'unknown').toLowerCase();
+
+  function metaCell(label, value) {
+    return `<div class="meta-cell" style="display:flex;flex-direction:column;gap:2px">
+      <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--ink-dim,#888);text-transform:uppercase;letter-spacing:0.05em">${escapeHtml(label)}</span>
+      <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--ink,#2a2a2a)">${value}</span>
+    </div>`;
+  }
+
+  el.innerHTML = `
+    <div class="inspector">
+      <section class="chart-card">
+        <div class="chart-card-head">
+          <h2 class="chart-card-title">memory · <em>id ${escapeHtml(String(m.id))}</em></h2>
+          <span class="chart-card-meta" data-copy="${escapeHtml(String(m.id))}" style="cursor:pointer">click id to copy</span>
+        </div>
+        <h3 style="margin:16px 0 8px;font-family:'Newsreader',serif;font-weight:600">Content</h3>
+        <div class="inspector-content" style="font-family:'Newsreader',serif;line-height:1.55;font-size:15px;padding:12px;background:var(--paper-mid,#f3ecdf);border-radius:4px;white-space:pre-wrap">${escapeHtml(m.content || '')}</div>
+      </section>
+
+      <section class="chart-card" style="margin-top:16px">
+        <div class="chart-card-head">
+          <h2 class="chart-card-title">Classification &amp; Lifecycle</h2>
+        </div>
+        <div class="inspector-meta-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;padding:12px 0">
+          ${metaCell('category', m.category ? `<span class="cell-cat ${catLower}">${escapeHtml(m.category)}</span>` : '<em>(none)</em>')}
+          ${metaCell('sender', escapeHtml(m.sender || '—'))}
+          ${metaCell('recipient', escapeHtml(m.recipient || '—'))}
+          ${metaCell('modality', escapeHtml(m.modality || '—'))}
+          ${metaCell('salience', m.salience != null ? fmtScore(m.salience) : '—')}
+          ${metaCell('retrieval count', String(m.retrieval_count != null ? m.retrieval_count : 0))}
+          ${metaCell('created', fmtTs(m.created_at))}
+          ${metaCell('last retrieved', m.last_retrieved_at ? fmtTs(m.last_retrieved_at) : '—')}
+          ${metaCell('emotional valence', m.emotional_valence != null ? fmtScore(m.emotional_valence) : '—')}
+          ${metaCell('embedding dim', m.embedding_dim != null ? String(m.embedding_dim) : '—')}
+        </div>
+      </section>
+
+      <section class="chart-card" style="margin-top:16px">
+        <div class="chart-card-head">
+          <h2 class="chart-card-title">Connections</h2>
+          <span class="chart-card-meta">entities · causal edges · fact timeline · landmark events · cluster</span>
+        </div>
+        <div class="inspector-conn-block">
+          <h4 style="margin:14px 0 6px">Entity links</h4>
+          ${(conn.entities && conn.entities.length)
+            ? '<ul class="inspector-list">' + conn.entities.map(e => `
+                <li><strong>${escapeHtml(e.entity || '')}</strong>
+                  <span style="color:var(--ink-dim,#888)">· ${e.message_count != null ? e.message_count : 0} msgs</span>
+                  ${e.traits ? `<div style="font-size:12px;color:var(--ink-mid,#5a5a5a);margin-top:2px">${escapeHtml(truncate(e.traits, 200))}</div>` : ''}
+                  ${e.topics ? `<div style="font-size:12px;color:var(--ink-mid,#5a5a5a)">topics: ${escapeHtml(truncate(e.topics, 200))}</div>` : ''}
+                </li>`).join('') + '</ul>'
+            : '<div class="inspector-empty">No entity links yet</div>'
+          }
+        </div>
+        <div class="inspector-conn-block">
+          <h4 style="margin:14px 0 6px">Causal edges</h4>
+          ${(conn.causal_edges && conn.causal_edges.length)
+            ? '<ul class="inspector-list">' + conn.causal_edges.map(e => `
+                <li>
+                  <span class="edge-dir">${escapeHtml(e.direction === 'cause_of' ? '→' : '←')}</span>
+                  <a href="11-inspector.html?id=${e.other_id}">id ${e.other_id}</a>
+                  ${e.relationship ? ` <em>(${escapeHtml(e.relationship)})</em>` : ''}
+                  ${e.confidence != null ? ` <span style="color:var(--ink-dim,#888)">conf ${fmtScore(e.confidence)}</span>` : ''}
+                  <div style="font-size:12px;color:var(--ink-mid,#5a5a5a);margin-top:2px">${escapeHtml(truncate(e.other_preview || '', 140))}</div>
+                </li>`).join('') + '</ul>'
+            : '<div class="inspector-empty">No causal edges yet</div>'
+          }
+        </div>
+        <div class="inspector-conn-block">
+          <h4 style="margin:14px 0 6px">Fact timeline</h4>
+          ${(conn.fact_timeline && conn.fact_timeline.length)
+            ? '<ul class="inspector-list">' + conn.fact_timeline.map(f => `
+                <li>
+                  <strong>${escapeHtml(f.subject || '')}</strong>
+                  <span style="color:var(--ink-dim,#888)">${escapeHtml(f.status || '')}</span>
+                  <div style="font-size:12px;color:var(--ink-mid,#5a5a5a);margin-top:2px">${escapeHtml(truncate(f.fact || '', 200))}</div>
+                  <div style="font-size:11px;color:var(--ink-dim,#888)">${escapeHtml(f.valid_from || '')}${f.valid_to ? ' → ' + escapeHtml(f.valid_to) : ''}${f.superseded_by ? ' · superseded by id ' + f.superseded_by : ''}</div>
+                </li>`).join('') + '</ul>'
+            : '<div class="inspector-empty">No timeline entries</div>'
+          }
+        </div>
+        <div class="inspector-conn-block">
+          <h4 style="margin:14px 0 6px">Landmark events</h4>
+          ${(conn.landmark_events && conn.landmark_events.length)
+            ? '<ul class="inspector-list">' + conn.landmark_events.map(le => `
+                <li>
+                  <strong>${escapeHtml(le.event_name || '')}</strong>
+                  ${le.event_type ? ` <em>(${escapeHtml(le.event_type)})</em>` : ''}
+                  <div style="font-size:11px;color:var(--ink-dim,#888)">${escapeHtml(le.timestamp || '')}${le.related_entities ? ' · ' + escapeHtml(le.related_entities) : ''}</div>
+                </li>`).join('') + '</ul>'
+            : '<div class="inspector-empty">No landmark events</div>'
+          }
+        </div>
+        <div class="inspector-conn-block">
+          <h4 style="margin:14px 0 6px">Cluster membership</h4>
+          ${conn.cluster
+            ? `<div>
+                <strong>cluster ${conn.cluster.cluster_id}</strong>
+                ${conn.cluster.noise ? ' <em>(noise)</em>' : ''}
+                <span style="color:var(--ink-dim,#888)">· ${conn.cluster.cluster_size != null ? conn.cluster.cluster_size : 0} other members</span>
+                ${conn.cluster.summary ? `<div style="font-size:12px;color:var(--ink-mid,#5a5a5a);margin-top:4px">${escapeHtml(truncate(conn.cluster.summary, 240))}</div>` : ''}
+                ${conn.cluster.session_range ? `<div style="font-size:11px;color:var(--ink-dim,#888)">${escapeHtml(conn.cluster.session_range)}</div>` : ''}
+              </div>`
+            : '<div class="inspector-empty">Not in any cluster yet</div>'
+          }
+        </div>
+        <p style="margin-top:20px;font-family:'Newsreader',serif;font-style:italic;color:var(--ink-mid,#5a5a5a);font-size:13px;line-height:1.5">
+          Connections are built by consolidation — run <code>truememory_consolidate</code> to weave new memories into timelines, clusters, and entity profiles.
+        </p>
+      </section>
+
+      <section class="chart-card" style="margin-top:16px">
+        <div class="chart-card-head">
+          <h2 class="chart-card-title">Nearest Neighbors</h2>
+          <span class="chart-card-meta">top 10 by cosine distance</span>
+        </div>
+        <p style="margin:6px 0 12px;font-family:'Newsreader',serif;font-style:italic;color:var(--ink-mid,#5a5a5a);font-size:13px">
+          Top-10 closest memories by cosine distance in embedding space — what TrueMemory considers 'related'. Distance 0 = identical meaning; larger = less related.
+        </p>
+        ${neighbors.length
+          ? '<table class="memory-feed-table"><thead><tr><th>rank</th><th>id</th><th>distance</th><th>category</th><th>preview</th></tr></thead><tbody>' +
+              neighbors.map((n, i) => `
+                <tr>
+                  <td class="cell-sender" style="color:var(--ink-dim,#888)">${i + 1}</td>
+                  <td class="cell-id"><a href="11-inspector.html?id=${n.id}">${n.id}</a></td>
+                  <td class="cell-sender" style="font-family:'DM Mono',monospace">${Number(n.distance).toFixed(4)}</td>
+                  <td>${n.category ? `<span class="cell-cat ${escapeHtml((n.category || '').toLowerCase())}">${escapeHtml(n.category)}</span>` : '—'}</td>
+                  <td class="cell-content">${escapeHtml(truncate(n.preview || '', 100))}</td>
+                </tr>`).join('') +
+            '</tbody></table>'
+          : '<div class="inspector-empty">No embedding for this memory — nearest-neighbor computation skipped</div>'
+        }
+      </section>
+
+      <section class="chart-card" style="margin-top:16px">
+        <div class="chart-card-head">
+          <h2 class="chart-card-title">Raw Vector</h2>
+          <span class="chart-card-meta">${m.embedding_dim != null ? m.embedding_dim + '-dim float32' : 'not embedded'}</span>
+        </div>
+        <p style="margin:6px 0 12px;font-family:'Newsreader',serif;font-style:italic;color:var(--ink-mid,#5a5a5a);font-size:13px">
+          The raw ${m.embedding_dim || 256}-dimension embedding stored for this memory (qwen3 256-dim). Expand only when you need it.
+        </p>
+        ${m.embedding_dim != null
+          ? `<button class="btn-secondary" id="load-vector-btn" data-mem-id="${m.id}">Load raw vector</button>
+             <pre id="vector-out" style="display:none;margin-top:12px;padding:12px;background:var(--paper-mid,#f3ecdf);border-radius:4px;font-family:'DM Mono',monospace;font-size:10px;white-space:pre-wrap;word-break:break-all;max-height:280px;overflow:auto"></pre>`
+          : '<div class="inspector-empty">Memory has no stored embedding</div>'
+        }
+      </section>
+    </div>`;
+
+  // Wire copy handlers on any data-copy attrs
+  attachCopyHandlers(el);
+
+  // Wire vector load button
+  const loadBtn = el.querySelector('#load-vector-btn');
+  const vecOut = el.querySelector('#vector-out');
+  if (loadBtn && vecOut) {
+    loadBtn.addEventListener('click', async () => {
+      loadBtn.disabled = true;
+      loadBtn.textContent = 'loading…';
+      try {
+        const r = await fetch('/api/memory/inspect/' + encodeURIComponent(m.id) + '?vector=1', { cache: 'no-store' });
+        const b = await r.json();
+        const vec = b && b.data && b.data.vector;
+        if (Array.isArray(vec)) {
+          vecOut.style.display = 'block';
+          vecOut.textContent = '[\n  ' +
+            vec.map((v, i) => (i % 8 === 7 ? Number(v).toFixed(6) + ',\n  ' : Number(v).toFixed(6) + ', ')).join('') +
+            '\n]';
+          loadBtn.textContent = 'loaded (' + vec.length + ' dims)';
+        } else {
+          vecOut.style.display = 'block';
+          vecOut.textContent = 'No vector returned.';
+          loadBtn.textContent = 'no vector';
+        }
+      } catch (err) {
+        vecOut.style.display = 'block';
+        vecOut.textContent = 'failed to load: ' + (err && err.message);
+        loadBtn.disabled = false;
+        loadBtn.textContent = 'retry';
+      }
+    });
+  }
+}
+
 /* ---------- refresh button hook-up ---------- */
 
 function attachRefresh(buttonEl, refreshFn) {
@@ -1064,6 +1351,7 @@ window.GTBM = {
   renderThemeTierChips,
   renderCategoryBars, renderCategoryTable, renderAgingCallouts,
   renderDecayPanels, renderThemesUMAP, renderOpsHealth, renderEncodingGate,
-  renderOpenLoops, attachRefresh, showLoading, showEmpty, showError,
+  renderOpenLoops, renderInjectionsFeed, renderMemoryInspector,
+  attachRefresh, showLoading, showEmpty, showError,
   copyToClipboard, attachCopyHandlers, escapeHtml,
 };

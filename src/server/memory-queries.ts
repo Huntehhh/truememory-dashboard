@@ -12,6 +12,9 @@
  * the SQL ports of those Python heuristics.
  */
 import type { Client, Pool } from 'pg';
+import Database from 'better-sqlite3';
+import path from 'node:path';
+import os from 'node:os';
 
 // PgRunner: accepts either a bare Client or a Pool (Pool implements .query()).
 // Used so memory-routes.ts can pass either without a cast.
@@ -1315,5 +1318,658 @@ export async function getMemoryOpenLoops(client: PgRunner): Promise<OpenLoopsRes
       last_fired_at: tsToIso(r.last_fired_at),
       activation_count: intOrNull(r.activation_count) ?? 0,
     })),
+  };
+}
+
+// ============================================================================
+// Injections — hook-emitted JSONL feed mirrored to tm_injections by the mirror
+// process. One row per session_start / user_prompt_submit / stop / compact /
+// smoke_test event. Powers the injection feed on the dashboard.
+// ============================================================================
+
+export type MemoryInjectionRow = {
+  id: number;
+  ts: string | null;
+  hook: string;
+  session_id: string | null;
+  action: string | null;
+  memory_count: number | null;
+  char_count: number | null;
+  query: string | null;
+  preview: string | null;
+  full_content: string | null;
+  extra: Record<string, unknown> | null;
+};
+
+export async function getMemoryInjections(
+  client: PgRunner,
+  limit: number,
+): Promise<MemoryInjectionRow[]> {
+  const sql = `
+    SELECT id, ts, hook, session_id, action, memory_count, char_count,
+           query, preview, full_content, extra
+      FROM tm_injections
+     ORDER BY ts DESC, id DESC
+     LIMIT $1::int
+  `;
+  const res = await client.query(sql, [limit]);
+  return res.rows.map((r) => {
+    // node-postgres parses JSONB into a JS value automatically. Guard against
+    // arrays / primitives showing up in the column so the type stays honest.
+    let extra: Record<string, unknown> | null = null;
+    const raw = r.extra;
+    if (raw !== null && raw !== undefined && typeof raw === 'object' && !Array.isArray(raw)) {
+      extra = raw as Record<string, unknown>;
+    }
+    return {
+      id: intOrNull(r.id) ?? 0,
+      ts: tsToIso(r.ts),
+      hook: String(r.hook ?? ''),
+      session_id: r.session_id == null ? null : String(r.session_id),
+      action: r.action == null ? null : String(r.action),
+      memory_count: intOrNull(r.memory_count),
+      char_count: intOrNull(r.char_count),
+      query: r.query == null ? null : String(r.query),
+      preview: r.preview == null ? null : String(r.preview),
+      full_content: r.full_content == null ? null : String(r.full_content),
+      extra,
+    };
+  });
+}
+
+// ============================================================================
+// Inspect — single-memory deep view: memory + connections (entities, causal
+// edges, fact timeline, landmarks, cluster) + top-10 vector neighbors +
+// optional raw embedding. Serves the memory inspector modal.
+//
+// Postgres for tm_memories (mirrored, cheap). SQLite read-only for the
+// connection tables — they're not mirrored (low-write-rate reference data;
+// snapshot at request time is fine). Neighbor computation reads the embedding
+// matrix out of the sqlite-vec storage tables (same layout compute_umap.py
+// uses); the matrix is cached in-process for 15 min to avoid re-parsing
+// ~350 vectors on every inspect.
+// ============================================================================
+
+export type MemoryInspectResult = {
+  memory: {
+    id: number;
+    content: string;
+    category: string | null;
+    sender: string | null;
+    recipient: string | null;
+    modality: string | null;
+    emotional_valence: number | null;
+    created_at: string | null;
+    salience: number | null;
+    last_retrieved_at: string | null;
+    retrieval_count: number;
+    embedding_dim: number | null;
+  } | null;
+  connections: {
+    entities: Array<{
+      entity: string;
+      message_count: number | null;
+      traits: string | null;
+      communication_style: string | null;
+      topics: string | null;
+      relationships: string | null;
+      updated_at: string | null;
+    }>;
+    causal_edges: Array<{
+      id: number;
+      direction: 'cause_of' | 'effect_of';
+      other_id: number;
+      other_preview: string;
+      relationship: string | null;
+      confidence: number | null;
+    }>;
+    fact_timeline: Array<{
+      id: number;
+      subject: string;
+      fact: string;
+      timestamp: string | null;
+      superseded_by: number | null;
+      entity_scope: string | null;
+      valid_from: string | null;
+      valid_to: string | null;
+      status: string | null;
+    }>;
+    landmark_events: Array<{
+      id: number;
+      event_name: string;
+      timestamp: string | null;
+      event_type: string | null;
+      related_entities: string | null;
+    }>;
+    cluster: {
+      cluster_id: number;
+      noise: boolean;
+      cluster_size: number;
+      summary: string | null;
+      session_range: string | null;
+    } | null;
+  };
+  neighbors: Array<{
+    id: number;
+    distance: number;
+    preview: string;
+    category: string | null;
+  }>;
+  vector: number[] | null;
+};
+
+// ---------------------------------------------------------------------------
+// SQLite read-only helper
+// ---------------------------------------------------------------------------
+// Matches the mirror's read-only discipline (readonly:true + fileMustExist:true
+// + WAL + busy_timeout). Open-close on every call — SQLite open is sub-ms and
+// keeping a long-lived connection would fight with the mirror's writer.
+
+function memoriesDbPath(): string {
+  return process.env.TRUEMEMORY_DB_PATH ?? path.join(os.homedir(), '.truememory', 'memories.db');
+}
+
+function openSourceDbRO(): Database.Database {
+  const p = memoriesDbPath();
+  const db = new Database(p, { readonly: true, fileMustExist: true });
+  db.pragma('journal_mode=WAL');
+  db.pragma('busy_timeout=5000');
+  return db;
+}
+
+// ---------------------------------------------------------------------------
+// Neighbor cache (module-level, 15-min TTL)
+// ---------------------------------------------------------------------------
+// The embedding matrix is small (~350 × 256 floats = ~360KB) so keeping it
+// in-process is basically free. Cache invalidation: age > 15 min. Concurrent
+// callers share a single in-flight reload via cacheLoadPromise.
+
+type NeighborCache = {
+  ids: number[];             // memory ids, indexed by row in vecs
+  idToRow: Map<number, number>; // memory id -> row index into vecs
+  vecs: Float32Array;        // N * dim, row-major, L2-normalized
+  dim: number;
+  activeTable: string;
+  loadedAt: number;
+};
+
+const NEIGHBOR_CACHE_TTL_MS = 15 * 60 * 1000;
+let neighborCache: NeighborCache | null = null;
+let neighborCacheLoadPromise: Promise<NeighborCache> | null = null;
+
+function pickWinningVecTable(db: Database.Database): { vec_table: string; embedding_dim: number } | null {
+  // vector_cache_registry.vector_count is the count of embeddings emitted for
+  // each tier. Highest count wins — that's the actively-embedded tier.
+  const row = db
+    .prepare(
+      `SELECT vec_table, embedding_dim, vector_count
+         FROM vector_cache_registry
+        ORDER BY vector_count DESC
+        LIMIT 1`,
+    )
+    .get() as { vec_table: string | null; embedding_dim: number | null; vector_count: number | null } | undefined;
+  if (!row || !row.vec_table || !row.embedding_dim || !row.vector_count) return null;
+  return { vec_table: row.vec_table, embedding_dim: row.embedding_dim };
+}
+
+async function buildNeighborCache(): Promise<NeighborCache> {
+  const db = openSourceDbRO();
+  try {
+    const winner = pickWinningVecTable(db);
+    if (!winner) {
+      // No embeddings — empty cache (still valid, prevents thrashing).
+      return {
+        ids: [],
+        idToRow: new Map(),
+        vecs: new Float32Array(0),
+        dim: 0,
+        activeTable: '',
+        loadedAt: Date.now(),
+      };
+    }
+    const { vec_table, embedding_dim } = winner;
+    const rowidsTable = `${vec_table}_rowids`;
+    const chunksTable = `${vec_table}_vector_chunks00`;
+    const slotBytes = embedding_dim * 4;
+
+    const rowidRows = db
+      .prepare(`SELECT rowid, chunk_id, chunk_offset FROM ${rowidsTable} ORDER BY rowid`)
+      .all() as Array<{ rowid: number; chunk_id: number; chunk_offset: number }>;
+
+    if (rowidRows.length === 0) {
+      return {
+        ids: [],
+        idToRow: new Map(),
+        vecs: new Float32Array(0),
+        dim: embedding_dim,
+        activeTable: vec_table,
+        loadedAt: Date.now(),
+      };
+    }
+
+    // Group by chunk_id so each chunk blob is fetched once.
+    const byChunk = new Map<number, Array<{ rowid: number; offset: number }>>();
+    for (const r of rowidRows) {
+      let list = byChunk.get(r.chunk_id);
+      if (!list) {
+        list = [];
+        byChunk.set(r.chunk_id, list);
+      }
+      list.push({ rowid: r.rowid, offset: r.chunk_offset });
+    }
+
+    const ids: number[] = [];
+    const vecFlat = new Float32Array(rowidRows.length * embedding_dim);
+    let writeRow = 0;
+
+    const chunkStmt = db.prepare(`SELECT vectors FROM ${chunksTable} WHERE rowid = ?`);
+    for (const [chunkId, entries] of byChunk) {
+      const blobRow = chunkStmt.get(chunkId) as { vectors: Buffer | null } | undefined;
+      if (!blobRow || !blobRow.vectors) continue;
+      const blob = blobRow.vectors;
+      for (const e of entries) {
+        const start = e.offset * slotBytes;
+        const end = start + slotBytes;
+        if (end > blob.length) continue;
+        // Copy the float32 slice into the pre-allocated flat buffer, and
+        // L2-normalize as we go so runtime queries can use a plain dot.
+        const view = new Float32Array(blob.buffer, blob.byteOffset + start, embedding_dim);
+        let norm = 0;
+        for (let j = 0; j < embedding_dim; j++) {
+          const v = view[j] ?? 0;
+          norm += v * v;
+        }
+        const inv = norm > 0 ? 1 / Math.sqrt(norm) : 0;
+        const base = writeRow * embedding_dim;
+        for (let j = 0; j < embedding_dim; j++) {
+          const v = view[j] ?? 0;
+          vecFlat[base + j] = v * inv;
+        }
+        ids.push(e.rowid);
+        writeRow++;
+      }
+    }
+
+    // Trim vecFlat if any rows were skipped (e.g. offset out of range).
+    let finalVecs: Float32Array;
+    if (writeRow === rowidRows.length) {
+      finalVecs = vecFlat;
+    } else {
+      finalVecs = new Float32Array(writeRow * embedding_dim);
+      finalVecs.set(vecFlat.subarray(0, writeRow * embedding_dim));
+    }
+
+    const idToRow = new Map<number, number>();
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i];
+      if (id === undefined) continue;
+      idToRow.set(id, i);
+    }
+
+    return {
+      ids,
+      idToRow,
+      vecs: finalVecs,
+      dim: embedding_dim,
+      activeTable: vec_table,
+      loadedAt: Date.now(),
+    };
+  } finally {
+    db.close();
+  }
+}
+
+async function getNeighborCache(): Promise<NeighborCache> {
+  const now = Date.now();
+  if (neighborCache && now - neighborCache.loadedAt < NEIGHBOR_CACHE_TTL_MS) {
+    return neighborCache;
+  }
+  if (neighborCacheLoadPromise) return neighborCacheLoadPromise;
+  neighborCacheLoadPromise = (async () => {
+    try {
+      const built = await buildNeighborCache();
+      neighborCache = built;
+      return built;
+    } finally {
+      neighborCacheLoadPromise = null;
+    }
+  })();
+  return neighborCacheLoadPromise;
+}
+
+function topKNeighbors(
+  cache: NeighborCache,
+  queryId: number,
+  k: number,
+): Array<{ id: number; distance: number }> {
+  const dim = cache.dim;
+  if (dim === 0 || cache.ids.length === 0) return [];
+  const row = cache.idToRow.get(queryId);
+  if (row === undefined) return [];
+  const base = row * dim;
+
+  // Score every row (vectors are L2-normalized so dot == cosine similarity).
+  // 350 × 256 = 89,600 float mults — sub-millisecond in V8.
+  const scores: Array<{ id: number; sim: number }> = [];
+  const n = cache.ids.length;
+  for (let i = 0; i < n; i++) {
+    if (i === row) continue;
+    const other = i * dim;
+    let s = 0;
+    for (let j = 0; j < dim; j++) {
+      s += (cache.vecs[base + j] ?? 0) * (cache.vecs[other + j] ?? 0);
+    }
+    const otherId = cache.ids[i];
+    if (otherId === undefined) continue;
+    scores.push({ id: otherId, sim: s });
+  }
+  scores.sort((a, b) => b.sim - a.sim);
+  return scores.slice(0, k).map((s) => ({
+    id: s.id,
+    // Clamp to [0, 2] then round for JSON cleanliness — cosine distance is
+    // 1 - sim, sim ∈ [-1, 1], so distance ∈ [0, 2].
+    distance: Math.max(0, Math.min(2, 1 - s.sim)),
+  }));
+}
+
+export async function getMemoryInspect(
+  client: PgRunner,
+  id: number,
+  options: { includeVector: boolean },
+): Promise<MemoryInspectResult> {
+  // ---- 1. Memory (Postgres, cheap) ----
+  const memRes = await client.query(
+    `SELECT id, content, NULLIF(category, '') AS category,
+            NULLIF(sender, '') AS sender, NULLIF(recipient, '') AS recipient,
+            modality, emotional_valence, created_at, salience,
+            last_retrieved_at, retrieval_count, embedding_dim
+       FROM tm_memories
+      WHERE id = $1`,
+    [id],
+  );
+  const memRow = memRes.rows[0];
+  if (!memRow) {
+    return {
+      memory: null,
+      connections: {
+        entities: [],
+        causal_edges: [],
+        fact_timeline: [],
+        landmark_events: [],
+        cluster: null,
+      },
+      neighbors: [],
+      vector: null,
+    };
+  }
+  const memory = {
+    id: intOrNull(memRow.id) ?? id,
+    content: String(memRow.content ?? ''),
+    category: memRow.category == null ? null : String(memRow.category),
+    sender: memRow.sender == null ? null : String(memRow.sender),
+    recipient: memRow.recipient == null ? null : String(memRow.recipient),
+    modality: memRow.modality == null ? null : String(memRow.modality),
+    emotional_valence: numOrNull(memRow.emotional_valence),
+    created_at: tsToIso(memRow.created_at),
+    salience: numOrNull(memRow.salience),
+    last_retrieved_at: tsToIso(memRow.last_retrieved_at),
+    retrieval_count: intOrNull(memRow.retrieval_count) ?? 0,
+    embedding_dim: intOrNull(memRow.embedding_dim),
+  };
+
+  // ---- 2. Connections (SQLite read-only, single open) ----
+  const db = openSourceDbRO();
+  let causalOtherIdsToLookup: number[] = [];
+  let entities: MemoryInspectResult['connections']['entities'] = [];
+  let causalRaw: Array<{
+    id: number;
+    cause_msg_id: number;
+    effect_msg_id: number;
+    relationship: string | null;
+    confidence: number | null;
+  }> = [];
+  let factTimelineRaw: Array<{
+    id: number;
+    subject: string;
+    fact: string;
+    timestamp: string | null;
+    superseded_by: number | null;
+    entity_scope: string | null;
+    valid_from: string | null;
+    valid_to: string | null;
+    status: string | null;
+  }> = [];
+  let landmarkRaw: Array<{
+    id: number;
+    event_name: string;
+    timestamp: string | null;
+    event_type: string | null;
+    related_entities: string | null;
+  }> = [];
+  let clusterRow:
+    | {
+        cluster_id: number;
+        noise: number;
+        message_count: number | null;
+        summary: string | null;
+        session_range: string | null;
+      }
+    | undefined;
+  try {
+    // Entities — matched on sender name (LOWER + trim). Empty sender = skip.
+    const senderKey = memory.sender ? memory.sender.trim().toLowerCase() : '';
+    if (senderKey.length > 0) {
+      entities = (db
+        .prepare(
+          `SELECT entity, message_count, traits, communication_style, topics,
+                  relationships, updated_at
+             FROM entity_profiles
+            WHERE LOWER(TRIM(entity)) = ?
+            LIMIT 5`,
+        )
+        .all(senderKey) as Array<{
+        entity: string;
+        message_count: number | null;
+        traits: string | null;
+        communication_style: string | null;
+        topics: string | null;
+        relationships: string | null;
+        updated_at: string | null;
+      }>).map((r) => ({
+        entity: r.entity,
+        message_count: r.message_count,
+        traits: r.traits,
+        communication_style: r.communication_style,
+        topics: r.topics,
+        relationships: r.relationships,
+        updated_at: r.updated_at,
+      }));
+    }
+
+    // Causal edges (either direction)
+    causalRaw = db
+      .prepare(
+        `SELECT id, cause_msg_id, effect_msg_id, relationship, confidence
+           FROM causal_edges
+          WHERE cause_msg_id = ? OR effect_msg_id = ?
+          LIMIT 20`,
+      )
+      .all(id, id) as typeof causalRaw;
+
+    causalOtherIdsToLookup = causalRaw.map((r) =>
+      r.cause_msg_id === id ? r.effect_msg_id : r.cause_msg_id,
+    );
+
+    // Fact timeline entries where this memory is the source.
+    factTimelineRaw = db
+      .prepare(
+        `SELECT id, subject, fact, timestamp, superseded_by, entity_scope,
+                valid_from, valid_to, status
+           FROM fact_timeline
+          WHERE source_message_id = ?
+          LIMIT 20`,
+      )
+      .all(id) as typeof factTimelineRaw;
+
+    // Landmark events tagged with this memory as source.
+    landmarkRaw = db
+      .prepare(
+        `SELECT id, event_name, timestamp, event_type, related_entities
+           FROM landmark_events
+          WHERE source_message_id = ?
+          LIMIT 20`,
+      )
+      .all(id) as typeof landmarkRaw;
+
+    // Cluster membership + centroid metadata.
+    clusterRow = db
+      .prepare(
+        `SELECT mc.cluster_id, mc.noise,
+                cc.message_count, cc.summary, cc.session_range
+           FROM message_clusters mc
+           LEFT JOIN cluster_centroids cc ON cc.cluster_id = mc.cluster_id
+          WHERE mc.message_id = ?
+          LIMIT 1`,
+      )
+      .get(id) as typeof clusterRow;
+  } finally {
+    db.close();
+  }
+
+  // Batch-look-up previews for the causal edges' "other" ids.
+  const causalPreviews = new Map<number, string>();
+  if (causalOtherIdsToLookup.length > 0) {
+    // Filter out this memory's own id (defensive — should never happen).
+    const otherIds = Array.from(new Set(causalOtherIdsToLookup.filter((x) => x !== id)));
+    if (otherIds.length > 0) {
+      const previewRes = await client.query(
+        `SELECT id, SUBSTR(content, 1, 100) AS preview
+           FROM tm_memories
+          WHERE id = ANY($1::bigint[])`,
+        [otherIds],
+      );
+      for (const r of previewRes.rows) {
+        const idNum = intOrNull(r.id);
+        if (idNum === null) continue;
+        causalPreviews.set(idNum, String(r.preview ?? ''));
+      }
+    }
+  }
+
+  const causalEdges: MemoryInspectResult['connections']['causal_edges'] = causalRaw.map((r) => {
+    const direction: 'cause_of' | 'effect_of' = r.cause_msg_id === id ? 'cause_of' : 'effect_of';
+    const otherId = direction === 'cause_of' ? r.effect_msg_id : r.cause_msg_id;
+    return {
+      id: r.id,
+      direction,
+      other_id: otherId,
+      other_preview: causalPreviews.get(otherId) ?? '',
+      relationship: r.relationship,
+      confidence: numOrNull(r.confidence),
+    };
+  });
+
+  const factTimeline: MemoryInspectResult['connections']['fact_timeline'] = factTimelineRaw.map(
+    (r) => ({
+      id: r.id,
+      subject: r.subject,
+      fact: r.fact,
+      timestamp: r.timestamp,
+      superseded_by: intOrNull(r.superseded_by),
+      entity_scope: r.entity_scope,
+      valid_from: r.valid_from,
+      valid_to: r.valid_to,
+      status: r.status,
+    }),
+  );
+
+  const landmarks: MemoryInspectResult['connections']['landmark_events'] = landmarkRaw.map((r) => ({
+    id: r.id,
+    event_name: r.event_name,
+    timestamp: r.timestamp,
+    event_type: r.event_type,
+    related_entities: r.related_entities,
+  }));
+
+  let cluster: MemoryInspectResult['connections']['cluster'] = null;
+  if (clusterRow) {
+    const memberCount = clusterRow.message_count ?? 0;
+    // Spec: cluster_size = message_count - 1 (other members, excluding this).
+    // Clamp at 0 to guard cluster_centroids being empty (LEFT JOIN → null).
+    const clusterSize = Math.max(0, memberCount - 1);
+    cluster = {
+      cluster_id: clusterRow.cluster_id,
+      noise: Boolean(clusterRow.noise),
+      cluster_size: clusterSize,
+      summary: clusterRow.summary,
+      session_range: clusterRow.session_range,
+    };
+  }
+
+  // ---- 3. Neighbors (in-process cache) ----
+  const cache = await getNeighborCache();
+  // The mirror derives tm_memories.embedding_dim from messages.embedding_separation
+  // (the SEP-tier blob), which is often NULL for memories that DO have a real
+  // basepro/edge embedding stored elsewhere in the vec_messages_* tables. When
+  // the cache confirms the embedding exists, surface its dim so the frontend
+  // knows to show the raw-vector loader button.
+  if (memory.embedding_dim == null && cache.idToRow.has(id) && cache.dim > 0) {
+    memory.embedding_dim = cache.dim;
+  }
+  const topIds = topKNeighbors(cache, id, 10);
+  let neighbors: MemoryInspectResult['neighbors'] = [];
+  if (topIds.length > 0) {
+    const neighborIds = topIds.map((n) => n.id);
+    const neighborRes = await client.query(
+      `SELECT id, SUBSTR(content, 1, 100) AS preview, NULLIF(category, '') AS category
+         FROM tm_memories
+        WHERE id = ANY($1::bigint[])`,
+      [neighborIds],
+    );
+    const previewMap = new Map<number, { preview: string; category: string | null }>();
+    for (const r of neighborRes.rows) {
+      const idNum = intOrNull(r.id);
+      if (idNum === null) continue;
+      previewMap.set(idNum, {
+        preview: String(r.preview ?? ''),
+        category: r.category == null ? null : String(r.category),
+      });
+    }
+    neighbors = topIds.map((n) => {
+      const meta = previewMap.get(n.id);
+      return {
+        id: n.id,
+        distance: n.distance,
+        preview: meta?.preview ?? '',
+        category: meta?.category ?? null,
+      };
+    });
+  }
+
+  // ---- 4. Optional raw vector ----
+  let vector: number[] | null = null;
+  if (options.includeVector) {
+    const row = cache.idToRow.get(id);
+    if (row !== undefined && cache.dim > 0) {
+      const base = row * cache.dim;
+      const out = new Array<number>(cache.dim);
+      for (let j = 0; j < cache.dim; j++) {
+        out[j] = cache.vecs[base + j] ?? 0;
+      }
+      vector = out;
+    }
+  }
+
+  return {
+    memory,
+    connections: {
+      entities,
+      causal_edges: causalEdges,
+      fact_timeline: factTimeline,
+      landmark_events: landmarks,
+      cluster,
+    },
+    neighbors,
+    vector,
   };
 }
