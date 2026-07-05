@@ -46,6 +46,14 @@ MEMORIES_DB = Path(os.environ.get("TRUEMEMORY_DB_PATH", TM_HOME / "memories.db")
 TM_CONFIG = Path(os.environ.get("TRUEMEMORY_CONFIG_PATH", TM_HOME / "config.json"))
 
 
+# NOTE: As of the cosine migration, the source of truth for the active tier is
+# `vector_cache_registry.tier_group` (the row with the highest `vector_count`),
+# NOT `config.json.tier`. `detect_active_tier()` below reads config.json and is
+# kept as a LEGACY FALLBACK — it fires before the DB is opened so we have a
+# best-effort default for module-level `ACTIVE_TIER`. `discover_tiers()`
+# consults `detect_active_tier_from_registry()` first and overrides
+# `ACTIVE_TIER` in-place when the registry disagrees (e.g., config.json is
+# stale with "pro" but the DB has "basepro" rows post-migration).
 def detect_active_tier() -> str:
     """Read the active embedding tier from ~/.truememory/config.json.
 
@@ -55,6 +63,10 @@ def detect_active_tier() -> str:
 
     Falls back to 'edge' (the default tier per the CLI) if the config file
     is missing or unreadable.
+
+    LEGACY FALLBACK — post-cosine-migration, prefer
+    `detect_active_tier_from_registry()` which reads the DB's
+    `vector_cache_registry` table (source of truth).
     """
     try:
         with TM_CONFIG.open("r", encoding="utf-8") as f:
@@ -64,7 +76,25 @@ def detect_active_tier() -> str:
         return "edge"
 
 
+def detect_active_tier_from_registry(conn: sqlite3.Connection) -> str | None:
+    """Preferred source of truth (post-cosine-migration).
+
+    Reads vector_cache_registry.tier_group ordered by vector_count DESC
+    and returns the top row. Returns None if the table doesn't exist or
+    is empty (fallback to config.json's detect_active_tier())."""
+    try:
+        row = conn.execute(
+            "SELECT tier_group FROM vector_cache_registry "
+            "WHERE vector_count > 0 ORDER BY vector_count DESC LIMIT 1"
+        ).fetchone()
+    except sqlite3.OperationalError:
+        return None
+    return str(row[0]).strip().lower() if row else None
+
+
 # Allow explicit override via env var; otherwise auto-detect from config.
+# `discover_tiers()` may reassign this at runtime if the DB's
+# vector_cache_registry table disagrees with config.json.
 ACTIVE_TIER = os.environ.get("TRUEMEMORY_TIER") or detect_active_tier()
 
 
@@ -189,7 +219,21 @@ def discover_tiers(conn: sqlite3.Connection) -> list[tuple[str, str, str]]:
       - Any vec_messages_<tier>_rowids that isn't the separation table
         (vec_messages_sep_*) and isn't the same pair already counted as
         active.
+
+    Consults `vector_cache_registry` first (post-cosine-migration source of
+    truth) and updates module-level `ACTIVE_TIER` if it disagrees with
+    config.json — this handles the common case of a stale config.json still
+    naming an old tier name (e.g., "pro" when the DB now stores "basepro").
     """
+    global ACTIVE_TIER
+    reg_tier = detect_active_tier_from_registry(conn)
+    if reg_tier and reg_tier != ACTIVE_TIER:
+        log(
+            f"vector_cache_registry active tier = '{reg_tier}' "
+            f"(config.json says '{ACTIVE_TIER}') — using registry"
+        )
+        ACTIVE_TIER = reg_tier
+
     found: list[tuple[str, str, str]] = []
     active_rowids, active_chunks = _resolve_vec_table_pair(conn)
     found.append((ACTIVE_TIER, active_rowids, active_chunks))
