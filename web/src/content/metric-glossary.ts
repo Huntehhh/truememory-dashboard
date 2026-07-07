@@ -220,6 +220,31 @@ export const GLOSSARY = {
     body: 'Deletes are two-phase: preview shows exactly what dies (and its closest neighbors, so you can spot "wait, that’s the only copy"), then a short-lived token authorizes the forget. Every action lands in an audit log — reconstructable, always.',
   },
 
+  'inspector.rawVector': {
+    title: 'Raw vector',
+    body: 'The memory’s actual 256-dimensional embedding — the coordinates semantic search navigates by. Individual numbers mean nothing alone; the pattern is what neighbors are measured against. Gold = positive, navy = negative, intensity = magnitude.',
+  },
+  'inspector.cluster': {
+    title: 'Cluster',
+    body: 'Which topic-cluster the engine grouped this memory into during consolidation. Empty until clustering runs (it needs consolidation + enough vectors) — not an error, just unpopulated.',
+  },
+  'curation.reviewQueue': {
+    title: 'Review queue',
+    body: 'Scans the most recent 500 memories for junk signatures — it is a triage window, not a whole-store audit. Older memories rotate in as you clear the queue or bump the feed limit.',
+  },
+  'curation.everythingFilter': {
+    title: 'Show everything',
+    body: 'Flips from triage mode (only flagged rows) to audit mode (every scanned memory, flagged or not). Useful for spot-checking what the heuristics did NOT catch.',
+  },
+  'curation.recategorize': {
+    title: 'Re-categorize',
+    body: 'Non-destructive: the memory keeps its content, vector, and salience — only the category label moves. Forget is the destructive one; when in doubt, re-categorize.',
+  },
+  'curation.directivesTab': {
+    title: 'Directives',
+    body: 'Directives inject into EVERY new session unconditionally — no relevance matching, no decay. That power is why they get their own tab: one stale directive pollutes every future chat, so prune here ruthlessly.',
+  },
+
   // ── Entities / sessions ─────────────────────────────────────────
   'entities.profile': {
     title: 'Entity profile',
