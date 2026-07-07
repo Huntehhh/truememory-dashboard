@@ -1,0 +1,79 @@
+/*
+ * TrueMemory Observatory v2 — design tokens.
+ * Two themes ("paper" default / "ink" dark) exposed via CSS custom properties.
+ * All values are semantic — never hardcode hex in components; consume via var(--*).
+ */
+
+:root,
+[data-theme='paper'] {
+  /* Surfaces */
+  --bg: #faf9f7;
+  --bg-warm: #f7f1e8;
+  --surface: rgba(255, 255, 255, 0.66);
+  --surface-strong: #ffffff;
+
+  /* Ink */
+  --ink: #1a1816;
+  --ink-muted: #8a8680;
+
+  /* Lines */
+  --line: #f0ede8;
+  --line-strong: #d4d0c8;
+
+  /* Shadows */
+  --shadow-card: 0 16px 50px rgba(0, 0, 0, 0.05);
+
+  /* Glass border (composited over --surface) */
+  --glass-border: rgba(26, 24, 22, 0.08);
+
+  /* Grain overlay tuning */
+  --grain-opacity: 0.35;
+
+  /* Ambient mesh opacity */
+  --mesh-opacity: 1;
+
+  /* Accents (shared across themes) */
+  --navy: #274176;
+  --gold: #d3a559;
+  --tan: #c4a77d;
+  --sage: #7a8c6a;
+
+  /* Severity (muted, theme-tuned) */
+  --sev-red: #b0524a;
+  --sev-amber: #c48b3a;
+  --sev-green: #6f8a5f;
+
+  /* Card/UI radii and glass tuning */
+  --blur-card: 20px;
+  --radius-card: 16px;
+  --radius-pill: 9999px;
+
+  /* Typography stacks */
+  --font-body: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-accent: 'Libre Baskerville', Georgia, 'Times New Roman', serif;
+  --font-mono: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+}
+
+[data-theme='ink'] {
+  --bg: #1a1a1f;
+  --bg-warm: #19191e;
+  --surface: rgba(247, 241, 232, 0.10);
+  --surface-strong: rgba(247, 241, 232, 0.14);
+
+  --ink: #f7f1e8;
+  --ink-muted: rgba(247, 241, 232, 0.55);
+
+  --line: rgba(247, 241, 232, 0.10);
+  --line-strong: rgba(247, 241, 232, 0.22);
+
+  --shadow-card: 0 20px 60px rgba(0, 0, 0, 0.35);
+  --glass-border: rgba(255, 255, 255, 0.16);
+
+  --grain-opacity: 0.25;
+  --mesh-opacity: 0.35;
+
+  /* Muted severity for ink mode reads better lifted a touch */
+  --sev-red: #c76a60;
+  --sev-amber: #d69f50;
+  --sev-green: #90a97e;
+}

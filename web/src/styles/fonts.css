@@ -1,0 +1,11 @@
+/* Inter — body */
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+
+/* Libre Baskerville — accent italic */
+@import '@fontsource/libre-baskerville/400-italic.css';
+
+/* DM Mono — mono/eyebrow */
+@import '@fontsource/dm-mono/400.css';
+@import '@fontsource/dm-mono/500.css';

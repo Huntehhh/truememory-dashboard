@@ -1,0 +1,96 @@
+@import 'tailwindcss';
+@import './styles/fonts.css';
+@import './styles/theme.css';
+
+/*
+ * Tailwind v4 @theme inline — expose CSS custom properties as
+ * Tailwind utilities (bg-bg, text-ink, border-line, etc.).
+ * Semantic tokens only; the tokens themselves live in styles/theme.css.
+ */
+@theme inline {
+  /* Colors — semantic */
+  --color-bg: var(--bg);
+  --color-bg-warm: var(--bg-warm);
+  --color-surface: var(--surface);
+  --color-surface-strong: var(--surface-strong);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  /* Accents */
+  --color-navy: var(--navy);
+  --color-gold: var(--gold);
+  --color-tan: var(--tan);
+  --color-sage: var(--sage);
+
+  /* Severity */
+  --color-sev-red: var(--sev-red);
+  --color-sev-amber: var(--sev-amber);
+  --color-sev-green: var(--sev-green);
+
+  /* Fonts */
+  --font-sans: var(--font-body);
+  --font-serif: var(--font-accent);
+  --font-mono: var(--font-mono);
+
+  /* Radii */
+  --radius-card: var(--radius-card);
+  --radius-pill: var(--radius-pill);
+
+  /* Shadows */
+  --shadow-card: var(--shadow-card);
+}
+
+/* Baseline. */
+html,
+body,
+#root {
+  height: 100%;
+}
+
+html {
+  color-scheme: light dark;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+[data-theme='ink'] {
+  color-scheme: dark;
+}
+
+[data-theme='paper'] {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  background: transparent;
+  color: inherit;
+}
+
+/*
+ * Grain overlay — filtered via the shared <filter id="tm-grain"> SVG.
+ * Renderer places <div class="grain" /> as absolute inset-0 over the canvas.
+ * Kept in global CSS so consumers can drop it in without importing utils.
+ */
+.grain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: var(--grain-opacity);
+  mix-blend-mode: overlay;
+  filter: url(#tm-grain);
+  /* Fallback tint if the SVG filter fails to resolve. */
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+/* Focus-visible ring — consistent across primitives. */
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
