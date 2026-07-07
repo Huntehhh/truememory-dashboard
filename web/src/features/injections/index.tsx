@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Sparkles } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { AccentWord } from '@/components/glass/AccentWord'
 import { GlassCard } from '@/components/glass/GlassCard'
 import { PageHeader } from '@/components/glass/PageHeader'
@@ -8,6 +8,7 @@ import { StatBadge } from '@/components/glass/StatBadge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { keys } from '@/lib/queryClient'
+import { useEventSource } from '@/lib/sse'
 import { fetchInjections, type InjectionRow as InjectionRowShape } from './api'
 import { HookFilter, type HookFilterValue } from './HookFilter'
 import { InjectionRow } from './InjectionRow'
@@ -28,12 +29,30 @@ export default function InjectionsPage(): React.ReactElement {
   const [limit, setLimit] = useState<number>(50)
   const [selected, setSelected] = useState<InjectionRowShape | null>(null)
 
+  const queryClient = useQueryClient()
+
   const q = useQuery({
     queryKey: keys.injections.list({ limit }),
     queryFn: () => fetchInjections(limit),
     refetchInterval: 30_000,
     refetchIntervalInBackground: false,
   })
+
+  // Live ticker — the sidecar tails ~/.truememory/injections.log and pushes
+  // one frame per hook fire. On any `injection` event we invalidate the
+  // active list so the row lands within a hair of the write. `ping`/`hello`
+  // are ignored; we only care about mutations. Reconnect handling and 3-try
+  // backoff-then-dormant live inside useEventSource — the feed silently
+  // downgrades to poll-only when the sidecar's down.
+  const onSseEvent = useCallback(
+    (type: string) => {
+      if (type === 'injection') {
+        void queryClient.invalidateQueries({ queryKey: keys.injections.all() })
+      }
+    },
+    [queryClient],
+  )
+  const sse = useEventSource('/api/sim/events', { onEvent: onSseEvent })
 
   const rows = q.data?.data ?? []
   const filtered = useMemo(() => {
@@ -45,6 +64,10 @@ export default function InjectionsPage(): React.ReactElement {
     <StatBadge tone="amber">error</StatBadge>
   ) : q.isFetching ? (
     <StatBadge tone="gold">refreshing</StatBadge>
+  ) : sse.status === 'live' ? (
+    <StatBadge tone="sage">live · sse</StatBadge>
+  ) : sse.status === 'connecting' ? (
+    <StatBadge tone="neutral">live · 30s</StatBadge>
   ) : (
     <StatBadge tone="sage">live · 30s</StatBadge>
   )
