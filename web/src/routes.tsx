@@ -59,6 +59,14 @@ const childRoutes: RouteObject[] = PAGES.map((page) => {
   }
 })
 
+// Inspector detail — same lazy component as the /inspector base, dispatches
+// on `useParams().id` internally. Kept as a manual push so `PAGES` stays the
+// SoT for nav-visible routes.
+childRoutes.push({
+  path: 'inspector/:id',
+  element: withSuspense(<InspectorPage />),
+})
+
 // Catch-all — send unknown routes home.
 childRoutes.push({
   path: '*',
