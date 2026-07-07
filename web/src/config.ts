@@ -208,6 +208,8 @@ export const FEATURE_PAGE_KEYS = new Set<string>([
   'aging',
   'entities',
   'sessions',
+  'timeline',
+  'gate',
 ])
 
 /** Icon used for an unknown route (defensive). */
