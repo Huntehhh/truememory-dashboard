@@ -30,6 +30,10 @@ import {
   getMemoryActivity,
   getMemoryInjections,
   getMemoryInspect,
+  getMemoryEntities,
+  getMemoryTimeline,
+  getMemorySessions,
+  getMemoryHealthDetail,
 } from './queries/index.js';
 import { parseClampInt, noStore, fail } from './route-helpers.js';
 
@@ -235,6 +239,64 @@ export function createMemoryRouter(client: PgRunner): Router {
         res.status(404).json({ error: 'memory not found' });
         return;
       }
+      noStore(res);
+      res.json({ data });
+    } catch (err) {
+      fail(res, err);
+    }
+  });
+
+  // Entities — SQLite entity_profiles read-through. Sorted by message_count
+  // DESC; the four JSON columns are parsed defensively (raw string on parse
+  // failure so no data is silently dropped). Missing table -> [].
+  router.get('/entities', async (_req: Request, res: Response) => {
+    try {
+      const data = await getMemoryEntities();
+      noStore(res);
+      res.json({ data });
+    } catch (err) {
+      fail(res, err);
+    }
+  });
+
+  // Fact timeline — SQLite fact_timeline grouped into supersession chains.
+  // Each chain is oldest -> newest; the tip is flagged `active: true`.
+  // Rows outside any chain surface as singletons — no row is dropped.
+  router.get('/timeline', async (_req: Request, res: Response) => {
+    try {
+      const data = await getMemoryTimeline();
+      noStore(res);
+      res.json({ data });
+    } catch (err) {
+      fail(res, err);
+    }
+  });
+
+  // Sessions — episodes + landmark_events merged into one payload, both
+  // newest-first. ?limit clamps EACH list independently (episodes and
+  // landmarks have different natural sizes). Same 1..1000 ceiling as /feed.
+  router.get('/sessions', async (req: Request, res: Response) => {
+    try {
+      const rawLimit = req.query.limit;
+      const limit =
+        typeof rawLimit === 'string' && rawLimit.length > 0
+          ? parseClampInt(rawLimit, 200, 1, 1000)
+          : undefined;
+      const data = await getMemorySessions(limit);
+      noStore(res);
+      res.json({ limit: limit ?? null, data });
+    } catch (err) {
+      fail(res, err);
+    }
+  });
+
+  // Health detail — per-tier embed coverage (vector_cache_registry + messages
+  // count), live rebuild progress (rebuild_status, usually []), and filesystem
+  // probes for ~/.truememory/{model_server.status, model_server.port,
+  // backlog/, extracted/}. Null-tolerant across every input.
+  router.get('/health-detail', async (_req: Request, res: Response) => {
+    try {
+      const data = await getMemoryHealthDetail();
       noStore(res);
       res.json({ data });
     } catch (err) {
