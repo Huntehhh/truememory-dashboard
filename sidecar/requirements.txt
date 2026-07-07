@@ -1,0 +1,6 @@
+# Sidecar runtime deps.
+# The truememory package itself is installed globally (editable) from
+# S:\OPEN-SOURCE-REPOSITORIES\TrueMemory — not pinned here.
+fastapi>=0.115
+uvicorn>=0.35
+sse-starlette>=3.0
