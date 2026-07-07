@@ -34,6 +34,17 @@ export type {
   MemoryDecayPanels,
   MemoryInjectionRow,
   MemoryInspectResult,
+  EntityProfileRow,
+  FactTimelineRow,
+  FactTimelineChain,
+  MemoryTimeline,
+  EpisodeRow,
+  LandmarkEventRow,
+  MemorySessions,
+  HealthTier,
+  RebuildStatusRow,
+  ModelServerFsStatus,
+  MemoryHealthDetail,
 } from './types.js';
 
 // ---------- exported functions ----------
@@ -48,3 +59,7 @@ export { getMemoryActivity } from './activity.js';
 export { getMemoryDecayPanels } from './decay.js';
 export { getMemoryInjections } from './injections.js';
 export { getMemoryInspect } from './inspect.js';
+export { getMemoryEntities } from './entities.js';
+export { getMemoryTimeline } from './timeline.js';
+export { getMemorySessions } from './sessions.js';
+export { getMemoryHealthDetail } from './health.js';

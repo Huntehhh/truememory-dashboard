@@ -262,6 +262,160 @@ export type MemoryInjectionRow = {
 };
 
 // ============================================================================
+// Entities — SQLite entity_profiles read-through. The four JSON-in-text columns
+// (traits, communication_style, topics, relationships) are parsed defensively:
+// on parse success we return the parsed value (object / array / primitive), on
+// parse failure we return the raw string so the payload never silently drops
+// data. Empty / null column → JS null. Table absent → [] (older installs).
+// ============================================================================
+
+export type EntityProfileRow = {
+  entity: string;
+  message_count: number | null;
+  // Each of the four JSON columns below is either:
+  //   - a parsed JS value (object / array / primitive) if JSON.parse succeeds,
+  //   - the raw string if the column held non-JSON text,
+  //   - null if the column was NULL or empty.
+  traits: unknown;
+  communication_style: unknown;
+  topics: unknown;
+  relationships: unknown;
+  updated_at: string | null;
+};
+
+// ============================================================================
+// Timeline — fact_timeline grouped into supersession chains. Each chain walks
+// forward via superseded_by (X.superseded_by = Y means Y is newer than X), so
+// chain[0] is the oldest, chain[chain.length-1] is the newest. The tip has
+// `active: true`. Rows outside any chain (dangling superseded_by, cycles) are
+// surfaced as singleton chains so no row is dropped.
+// ============================================================================
+
+export type FactTimelineRow = {
+  id: number;
+  subject: string;
+  fact: string;
+  source_message_id: number | null;
+  timestamp: string | null;
+  superseded_by: number | null;
+  entity_scope: string | null;
+  valid_from: string | null;
+  valid_to: string | null;
+  status: string | null;
+  active: boolean;
+};
+
+export type FactTimelineChain = {
+  subject: string;
+  chain: FactTimelineRow[];
+};
+
+export type MemoryTimeline = {
+  chains: FactTimelineChain[];
+};
+
+// ============================================================================
+// Sessions — episodes + landmark_events merged into a single chronological
+// payload. Both lists are newest-first; ?limit clamps each list independently.
+// related_entities on landmark rows is parsed defensively like the entity JSON
+// columns (parsed on success, raw string on failure, null when empty/absent).
+// ============================================================================
+
+export type EpisodeRow = {
+  id: number;
+  start_time: string | null;
+  end_time: string | null;
+  message_count: number | null;
+  summary: string | null;
+};
+
+export type LandmarkEventRow = {
+  id: number;
+  event_name: string;
+  timestamp: string | null;
+  event_type: string | null;
+  related_entities: unknown;
+  source_message_id: number | null;
+};
+
+export type MemorySessions = {
+  episodes: EpisodeRow[];
+  landmarks: LandmarkEventRow[];
+};
+
+// ============================================================================
+// Health detail — per-tier embed coverage from vector_cache_registry vs the
+// live message count, plus rebuild_status rows (live re-embed progress, usually
+// empty), plus filesystem probes for ~/.truememory/{model_server.status,
+// model_server.port, backlog/, extracted/}. Everything is null-tolerant — a
+// missing table or file degrades to null / [], never surfaces as a 500.
+// ============================================================================
+
+export type HealthTier = {
+  tier: string;
+  model: string | null;
+  vectors: number;
+  total_messages: number;
+  // coverage_pct = min(100, vectors / total_messages * 100). NULL when
+  // total_messages is 0 (division by zero guard — a cold DB reports null).
+  coverage_pct: number | null;
+  // active tier = the row with the highest vector_count in vector_cache_registry.
+  // Ties resolve to the first row seen; on tables with 0 or 1 rows the flag
+  // still holds the invariant "exactly one active tier, else none".
+  active: boolean;
+  embedding_dim: number | null;
+  last_embedded_id: number | null;
+  // last_updated is stored as a REAL epoch-seconds in SQLite. We surface an
+  // ISO-8601 string for consistency with the rest of the API.
+  last_updated: string | null;
+};
+
+export type RebuildStatusRow = {
+  id: number;
+  tier_group: string;
+  target_tier: string;
+  status: string;
+  action: string | null;
+  total_messages: number | null;
+  processed_messages: number | null;
+  progress_pct: number | null;
+  eta_seconds: number | null;
+  batch_size: number | null;
+  throughput_ips: number | null;
+  ram_pct: number | null;
+  pressure: number | null;
+  error: string | null;
+  // The three timestamp columns are REAL epoch seconds in SQLite — surfaced
+  // as ISO strings for the frontend.
+  started_at: string | null;
+  completed_at: string | null;
+  backup_path: string | null;
+  last_heartbeat: string | null;
+};
+
+export type ModelServerFsStatus = {
+  // Existence flags stay separate from content so the frontend can render
+  // "missing" without inspecting the string.
+  status_file_exists: boolean;
+  status_content: string | null;
+  port_file_exists: boolean;
+  port: number | null;
+};
+
+export type MemoryHealthDetail = {
+  tiers: HealthTier[];
+  // Live re-embed progress. Almost always empty (rebuild_status is only
+  // populated during an active reconfigure_embeddings run).
+  rebuild_status: RebuildStatusRow[];
+  model_server: ModelServerFsStatus;
+  // File counts in ~/.truememory/backlog/ and ~/.truememory/extracted/. null
+  // when the directory is absent (tolerated — an older install may not have
+  // materialized them yet).
+  backlog_count: number | null;
+  extracted_count: number | null;
+};
+
+// ============================================================================
 // Inspect — single-memory deep view: memory + connections (entities, causal
 // edges, fact timeline, landmarks, cluster) + top-10 vector neighbors +
 // optional raw embedding. Serves the memory inspector modal.
