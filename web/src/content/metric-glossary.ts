@@ -163,6 +163,76 @@ export const GLOSSARY = {
     title: 'Fact timeline',
     body: 'The versioned history of this fact: when it became valid, whether a newer memory superseded it, and what replaced it. A superseded memory stops injecting for current questions but remains for temporal ones ("what did I use to prefer?").',
   },
+
+  // ── KPI (7d variants — what the wire actually emits) ───────────
+  'kpi.retrieved7d': {
+    title: 'Retrieved (7d)',
+    body: 'Retrieval events in the last week — every time any memory was surfaced into a chat. This counts events, not unique memories: one hot memory recalled 20 times contributes 20. Zero for a whole week of active use means recall is broken.',
+  },
+  'kpi.stores7d': {
+    title: 'New memories (7d)',
+    body: 'Memories added this week from session-close extraction, manual stores, and backfill. Backfill weeks will dwarf normal weeks — a typical organic week adds a few dozen, not hundreds.',
+  },
+
+  // ── Aging / decay ───────────────────────────────────────────────
+  'aging.decay': {
+    title: 'Decay',
+    body: 'Salience erodes when a memory goes unretrieved — it drifts toward the guard threshold and eventually stops surfacing. Decay is a feature (old noise fades), but a decaying memory you still care about is a signal to restate or pin it as a directive.',
+  },
+  'aging.retrievalGap': {
+    title: 'Retrieval gap',
+    body: 'Time since this memory last surfaced into any chat. Long gaps on high-salience memories usually mean the topic just hasn’t come up; long gaps on everything at once means recall itself was down (it was, for 37 days once).',
+  },
+
+  // ── Themes / UMAP ───────────────────────────────────────────────
+  'themes.umap': {
+    title: 'Memory map (UMAP)',
+    body: 'All memory embeddings projected to 2D — memories that mean similar things sit close together. Tight clusters are topics; isolated points are one-off facts; two points on top of each other are near-duplicates worth merging.',
+  },
+  'themes.tier': {
+    title: 'Embedding tier',
+    body: 'Which embedding model produced the vectors on screen. Tiers are not comparable — switching tiers redraws the whole map. The active tier is the one recall actually uses.',
+  },
+
+  // ── Encoding gate ───────────────────────────────────────────────
+  'gate.rejectReason': {
+    title: 'Reject reason',
+    body: 'Why the gate refused a candidate fact: too similar to something stored (novelty), too trivial (salience), or malformed. Scanning rejects occasionally is how you catch real facts being dropped — the "memory coverage" blind spot.',
+  },
+
+  // ── Operations ──────────────────────────────────────────────────
+  'ops.rerankerLatency': {
+    title: 'Reranker latency',
+    body: 'p50/p95 of the cross-encoder scoring pass. A sudden jump usually means the model server fell off the GPU onto CPU — check model-server health before blaming the query.',
+  },
+  'ops.backlog': {
+    title: 'Extraction backlog',
+    body: 'Transcripts queued for memory extraction. Grows while you chat, drains in the background via local Ollama. A backlog that only grows means the drainer died.',
+  },
+
+  // ── Curation ────────────────────────────────────────────────────
+  'curation.junkHeuristic': {
+    title: 'Why flagged',
+    body: 'What put this memory in the review queue: dict/code-shaped content (extractor artifact), near-duplicate of a neighbor, uncategorized, or never retrieved. Flags are suggestions — you decide; nothing is deleted without your confirm.',
+  },
+  'curation.twoPhase': {
+    title: 'Confirm step',
+    body: 'Deletes are two-phase: preview shows exactly what dies (and its closest neighbors, so you can spot "wait, that’s the only copy"), then a short-lived token authorizes the forget. Every action lands in an audit log — reconstructable, always.',
+  },
+
+  // ── Entities / sessions ─────────────────────────────────────────
+  'entities.profile': {
+    title: 'Entity profile',
+    body: 'The accumulated model of a person: traits, topics you discuss with them, relationships, communication style — built automatically from every memory mentioning them. This is what makes "email Josh the way I usually do" possible.',
+  },
+  'sessions.episode': {
+    title: 'Episode',
+    body: 'A conversational chunk the engine detected as one coherent stretch of activity, with its own summary. Episodes are how the store keeps narrative shape instead of a flat pile of facts.',
+  },
+  'sessions.landmark': {
+    title: 'Landmark event',
+    body: 'A moment the engine judged significant enough to remember as an event, not just a fact — launches, decisions, milestones. Landmarks anchor temporal queries ("what happened around the TrueMemory restore?").',
+  },
 } as const satisfies Record<string, MetricDoc>
 
 export type GlossaryKey = keyof typeof GLOSSARY
