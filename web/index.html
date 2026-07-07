@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en" data-theme="paper">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TrueMemory Observatory</title>
+    <script>
+      // Pre-hydration theme apply. Reads the persisted zustand blob so the
+      // first paint matches the saved theme — no white flash before React mounts.
+      (function () {
+        try {
+          var raw = localStorage.getItem('tm-theme');
+          if (!raw) return;
+          var parsed = JSON.parse(raw);
+          var t = parsed && parsed.state && parsed.state.theme;
+          if (t === 'ink' || t === 'paper') {
+            document.documentElement.setAttribute('data-theme', t);
+          }
+        } catch (_) {
+          /* no-op — fall back to the default paper theme. */
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

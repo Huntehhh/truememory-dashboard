@@ -11,7 +11,9 @@
     "mirror:once": "node dist/mirror/truememory.js --once",
     "refresh-matviews": "node dist/refresh/matviews.js",
     "refresh-matviews:once": "node dist/refresh/matviews.js --once",
-    "server": "node dist/server/index.js"
+    "server": "node dist/server/index.js",
+    "web:dev": "npm --prefix web run dev",
+    "web:build": "npm --prefix web run build"
   },
   "dependencies": {
     "better-sqlite3": "^12.10.0",
