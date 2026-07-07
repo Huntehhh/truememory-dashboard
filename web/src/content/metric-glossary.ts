@@ -184,6 +184,31 @@ export const GLOSSARY = {
     body: 'Time since this memory last surfaced into any chat. Long gaps on high-salience memories usually mean the topic just hasn’t come up; long gaps on everything at once means recall itself was down (it was, for 37 days once).',
   },
 
+  'aging.longStored': {
+    title: 'Long-stored stranger',
+    body: 'The oldest memory that has NEVER been retrieved — stored, then silent ever since. Either it’s genuinely irrelevant (forget it) or its topic just hasn’t come up (leave it; storage is cheap, only injection space is scarce).',
+  },
+  'aging.surprise': {
+    title: 'Surprise that faded',
+    body: 'A memory that arrived as big news (high prediction-error at encoding) but stopped surfacing. Novelty bought it early attention; relevance decides its retirement.',
+  },
+  'aging.clusterNeglected': {
+    title: 'Neglected cluster',
+    body: 'A whole topic-cluster with no recent retrievals — an entire subject going cold at once. Different from one dead memory: this says the conversation itself moved on.',
+  },
+  'aging.horizon': {
+    title: 'Memory horizon',
+    body: 'How far back retrieval actually reaches in practice — the age of the oldest memory still being recalled. A shrinking horizon means recency is dominating and old knowledge is effectively unreachable.',
+  },
+  'gate.sessionConsistency': {
+    title: 'Per-session pass rate',
+    body: 'Gate pass rate session by session. A single session near 0% or 100% is an outlier worth opening — either the extractor produced junk that session, or the gate waved everything through.',
+  },
+  'gate.openLoops': {
+    title: 'Open loops',
+    body: 'Signals the schema supports but the runtime never emits — dashboard panels waiting on upstream instrumentation. Listed so absence reads as "not wired yet," never as "zero events."',
+  },
+
   // ── Themes / UMAP ───────────────────────────────────────────────
   'themes.umap': {
     title: 'Memory map (UMAP)',
