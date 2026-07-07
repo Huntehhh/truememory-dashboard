@@ -30,7 +30,7 @@ import {
   getMemoryActivity,
   getMemoryInjections,
   getMemoryInspect,
-} from './memory-queries.js';
+} from './queries/index.js';
 import { parseClampInt, noStore, fail } from './route-helpers.js';
 
 export function createMemoryRouter(client: PgRunner): Router {
