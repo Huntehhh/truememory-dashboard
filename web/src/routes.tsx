@@ -14,10 +14,12 @@ const SimulatorPage = lazy(() => import('@/features/simulator'))
 const InspectorPage = lazy(() => import('@/features/inspector'))
 const CurationPage = lazy(() => import('@/features/curation'))
 const ThemesPage = lazy(() => import('@/features/themes'))
-const OpsPage = lazy(() => import('@/features/ops'))
 const AgingPage = lazy(() => import('@/features/aging'))
 const EntitiesPage = lazy(() => import('@/features/entities'))
 const SessionsPage = lazy(() => import('@/features/sessions'))
+const TimelinePage = lazy(() => import('@/features/timeline'))
+const HealthPage = lazy(() => import('@/features/health'))
+const GatePage = lazy(() => import('@/features/gate'))
 
 const FEATURE_COMPONENTS: Record<string, React.LazyExoticComponent<React.ComponentType>> = {
   overview: OverviewPage,
@@ -27,10 +29,12 @@ const FEATURE_COMPONENTS: Record<string, React.LazyExoticComponent<React.Compone
   inspector: InspectorPage,
   curation: CurationPage,
   themes: ThemesPage,
-  health: OpsPage,
+  health: HealthPage,
   aging: AgingPage,
   entities: EntitiesPage,
   sessions: SessionsPage,
+  timeline: TimelinePage,
+  gate: GatePage,
 }
 
 function withSuspense(node: React.ReactNode): React.ReactElement {

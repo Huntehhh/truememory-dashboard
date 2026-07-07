@@ -236,6 +236,10 @@ export const GLOSSARY = {
   },
 
   // ── Curation ────────────────────────────────────────────────────
+  'ops.extracted': {
+    title: 'Extracted markers',
+    body: 'Transcripts already processed into memories — each leaves a marker so re-runs skip it. This count climbing during a backfill is the progress bar; it should roughly track your total transcript count when caught up.',
+  },
   'curation.junkHeuristic': {
     title: 'Why flagged',
     body: 'What put this memory in the review queue: dict/code-shaped content (extractor artifact), near-duplicate of a neighbor, uncategorized, or never retrieved. Flags are suggestions — you decide; nothing is deleted without your confirm.',
