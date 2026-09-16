@@ -26,10 +26,13 @@ export function noStore(res: Response): void {
 }
 
 /**
- * 500 + clean JSON error body. Never surfaces stack traces — keeps the
- * dashboard friendly and avoids leaking internals into the network tab.
+ * 500 + clean JSON error body. Never surfaces stack traces to the client --
+ * keeps the dashboard friendly and avoids leaking internals into the network
+ * tab -- but does log server-side, so an operator watching the terminal
+ * still sees what actually broke.
  */
 export function fail(res: Response, err: unknown): void {
   const msg = err instanceof Error ? err.message : 'internal error';
+  console.error('[server] request failed:', err);
   res.status(500).json({ error: msg });
 }

@@ -119,10 +119,21 @@ async function main(): Promise<void> {
   console.log(`[server] connected to postgres ${PG_HOST}:${PG_PORT}/${PG_DATABASE} as ${PG_USER}`);
 
   const app = express();
-  // CORS — allow same-origin AND file:// (origin: null) so you can double-click the HTML.
+  // CORS — same-origin, file:// (origin: null, so you can double-click the HTML),
+  // and localhost/127.0.0.1 on any port. NOT a wildcard: reflecting every origin
+  // here would let any website open in the same browser read this server's
+  // responses (it serves memory content) and reach the sidecar proxy with
+  // simple, non-preflighted requests.
+  const ALLOWED_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
   app.use(
     cors({
-      origin: (origin, callback) => callback(null, true),
+      origin: (origin, callback) => {
+        if (!origin || origin === 'null' || ALLOWED_ORIGIN.test(origin)) {
+          callback(null, true);
+        } else {
+          callback(new Error('Not allowed by CORS'));
+        }
+      },
       methods: ['GET'],
     }),
   );
@@ -222,7 +233,12 @@ async function main(): Promise<void> {
   const shutdown = async (sig: string): Promise<void> => {
     console.log(`[server] received ${sig}, draining...`);
     server.close(() => {
-      void client.end().then(() => process.exit(0));
+      client.end()
+        .then(() => process.exit(0))
+        .catch((err) => {
+          console.error('[server] error closing pg pool during shutdown:', err);
+          process.exit(1);
+        });
     });
     // Hard exit guard if close hangs.
     setTimeout(() => process.exit(0), 5000).unref();
