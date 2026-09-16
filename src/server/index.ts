@@ -8,7 +8,7 @@
  * cannot mutate anything.
  *
  * Surface:
- *   GET  /                        -> 302 -> /dashboard/memory/00-index.html
+ *   GET  /                        -> 302 -> /app/  (v2 SPA front door)
  *   GET  /healthz                 -> {ok: true} for the run-loop watchdog
  *   GET  /dashboard/<file>        -> static from <repo>/dashboard/  (legacy dashboard)
  *   GET  /app                     -> Vite/React SPA (index.html no-store)
@@ -128,7 +128,8 @@ async function main(): Promise<void> {
   );
 
   app.get('/', (_req: Request, res: Response) => {
-    res.redirect(302, '/dashboard/memory/00-index.html');
+    // v2 SPA is the front door; legacy static pages remain at /dashboard/.
+    res.redirect(302, '/app/');
   });
 
   app.get('/healthz', (_req: Request, res: Response) => {
