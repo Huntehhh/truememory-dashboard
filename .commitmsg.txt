@@ -1,12 +1,24 @@
-fix(server): route root to the v2 SPA instead of the legacy dashboard
+fix(security): lock down wildcard CORS, log swallowed errors, catch shutdown rejection
 
-The v2 React/Vite app at /app is the current front door; the legacy
-static pages under /dashboard/ are kept for pages v2 hasn't replaced
-yet. Root ("/") was still redirecting to the legacy index page,
-which is the wrong default now that v2 is the primary surface.
+- index.ts's CORS reflected every origin (`callback(null, true)` for any
+  Origin header), justified as file:// support for double-clicking the
+  HTML. That's broader than intended: any website open in the same
+  browser could read this server's responses (it serves memory
+  content) and reach the /api/sim sidecar proxy with simple,
+  non-preflighted GETs. Restricted to same-origin, file:// (origin:
+  null), and localhost/127.0.0.1 on any port -- the actual set of
+  callers this server is meant to serve.
 
-Also: debug_navigation_failed_*.png from a local QA run and an
-untracked handoffs/ note (about an unrelated global skill-library
-restructure that happened to run from a session opened in this
-directory -- its own scope note says so) were never committed;
-gitignored the debug-screenshot pattern going forward.
+- route-helpers.ts's fail() sent a clean {error} body to the client
+  (correct -- no stack traces over the wire) but never logged
+  server-side, so a 500 left zero trace in the terminal of what
+  actually broke. Added console.error before the response.
+
+- index.ts's shutdown handler called client.end() with `void` and no
+  .catch() -- a rejected close (e.g. socket already severed) would
+  surface as an unhandled rejection instead of the clean process.exit
+  the shutdown path is supposed to guarantee. Added a .catch() that
+  logs and exits.
+
+Found via a Gemini-assisted review of the server's HTTP-facing surface
+ahead of making this repo public.
