@@ -1,0 +1,12 @@
+fix(server): route root to the v2 SPA instead of the legacy dashboard
+
+The v2 React/Vite app at /app is the current front door; the legacy
+static pages under /dashboard/ are kept for pages v2 hasn't replaced
+yet. Root ("/") was still redirecting to the legacy index page,
+which is the wrong default now that v2 is the primary surface.
+
+Also: debug_navigation_failed_*.png from a local QA run and an
+untracked handoffs/ note (about an unrelated global skill-library
+restructure that happened to run from a session opened in this
+directory -- its own scope note says so) were never committed;
+gitignored the debug-screenshot pattern going forward.

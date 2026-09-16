@@ -13,6 +13,9 @@ logs/
 .DS_Store
 Thumbs.db
 
+# Debug artifacts from local QA runs
+debug_navigation_failed_*.png
+
 # Local data (none should exist in-repo, but guard against accidental drops)
 data/
 *.db
